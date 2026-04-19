@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
+.kiro
+AGENTS.md
+CLAUDE.md
+/src/generated/prisma
