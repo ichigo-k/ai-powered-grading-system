@@ -14,12 +14,12 @@ export default async function LecturerLayout({
   }
 
   return (
-    <div className="flex min-h-screen" style={{ backgroundColor: "#F8F9FA" }}>
+    <div className="flex min-h-screen" style={{ backgroundColor: "#F4F6FB" }}>
       <LecturerSidebar
         userName={session.user.name}
         userId={session.user.userId}
       />
-      <main className="flex-1 ml-64 p-8">
+      <main className="flex-1 ml-64 p-8 min-h-screen">
         {children}
       </main>
     </div>

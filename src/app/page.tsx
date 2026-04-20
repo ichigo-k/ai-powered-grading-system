@@ -10,201 +10,183 @@ export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, null);
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F8F9FA" }}>
-      {/* Top bar */}
-      <header className="flex items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-2">
-          <Image
-            src="/logos/gctu-logo.png"
-            alt="GCTU Logo"
-            width={48}
-            height={48}
-            className="rounded"
-          />
-          <span className="font-semibold text-sm" style={{ color: "#003366" }}>
-            GCTU
-          </span>
-        </div>
-        <button
-          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border"
-          style={{ borderColor: "#003366", color: "#003366" }}
-          title="Help"
-        >
-          ?
-        </button>
-      </header>
+    <div className="h-screen flex overflow-hidden bg-white">
 
-      {/* Main content */}
-      <main className="flex-1 flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
-          {/* Crest */}
-          <div className="flex flex-col items-center mb-6">
-            <h1 className="text-2xl font-bold" style={{ color: "#003366" }}>
-              Welcome Back
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Please sign in to access your dashboard
-            </p>
+      {/* Left panel — academic image */}
+      <div className="hidden lg:block w-[560px] flex-shrink-0 relative overflow-hidden">
+        <Image
+          src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=840&q=80"
+          alt="Academic setting"
+          fill
+          className="object-cover"
+          priority
+        />
+      </div>
+
+      {/* Right panel */}
+      <div className="flex-1 flex flex-col overflow-y-auto bg-white">
+
+        {/* Top bar */}
+        <header className="flex items-center justify-between px-10 pt-8 pb-0">
+          <div className="flex items-center gap-2.5 lg:hidden">
+            <Image src="/logos/gctu-logo.png" alt="GCTU" width={30} height={30} className="object-contain" />
+            <span className="font-bold text-sm text-[#0A1628]">GCTU</span>
           </div>
+          <div className="hidden lg:block" />
+          <a href="#" className="text-xs text-[#94A3B8] hover:text-[#0A1628] transition-colors">
+            Need help?
+          </a>
+        </header>
 
-          {/* Form */}
-          <form className="flex flex-col gap-5" action={formAction}>
-            {/* Student/Staff ID */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold tracking-wide uppercase" style={{ color: "#003366" }}>
-                Student / Staff ID
-              </label>
-              <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 focus-within:border-[#0055A4] focus-within:bg-white transition-colors overflow-hidden">
-                <div className="flex items-center gap-2 px-3 py-2.5 flex-1">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
+        {/* Form */}
+        <main className="flex-1 flex items-center justify-center px-10 py-10">
+          <div className="w-full max-w-[360px]">
+
+            {/* Heading */}
+            <div className="mb-8">
+              <p className="text-xs font-semibold tracking-widest uppercase text-[#2563EB] mb-2">GCTU Academic Portal</p>
+              <h1 className="text-[28px] font-bold text-[#0A1628] leading-snug">Welcome back</h1>
+              <p className="text-sm text-[#94A3B8] mt-1">Sign in to continue to your dashboard</p>
+            </div>
+
+            <form className="space-y-4" action={formAction}>
+
+              {/* Username */}
+              <div>
+                <label className="block text-xs font-semibold text-[#0A1628] mb-1.5">Username</label>
+                <div className="flex rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] overflow-hidden focus-within:border-[#2563EB] focus-within:bg-white transition-all">
                   <input
                     type="text"
                     name="userId"
-                    placeholder="e.g. 4211202010"
-                    className="flex-1 bg-transparent text-sm outline-none text-gray-700 placeholder-gray-400 min-w-0"
+                    placeholder="Your GCTU email or index number"
+                    className="flex-1 bg-transparent text-sm text-[#0A1628] placeholder-[#CBD5E1] px-4 py-3 outline-none min-w-0"
                   />
-                </div>
-                <div
-                  className="px-3 py-2.5 text-sm border-l border-gray-200 shrink-0 select-none"
-                  style={{ backgroundColor: "#f0f4f8", color: "#0055A4" }}
-                >
-                  @live.gctu.edu.gh
+                  <span className="flex items-center px-3 text-xs font-medium text-[#2563EB] border-l border-[#E2E8F0] bg-[#EFF6FF] whitespace-nowrap">
+                    @live.gctu.edu.gh
+                  </span>
                 </div>
               </div>
-            </div>
 
-            {/* Password */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold tracking-wide uppercase" style={{ color: "#003366" }}>
-                  Password
-                </label>
-                <button type="button" className="text-xs font-medium" style={{ color: "#0055A4" }}>
-                  Forgot Password?
-                </button>
+              {/* Password */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-[#0A1628]">Password</label>
+                  <button type="button" className="text-xs text-[#2563EB] hover:underline">Forgot password?</button>
+                </div>
+                <div className="flex items-center rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 gap-2 focus-within:border-[#2563EB] focus-within:bg-white transition-all">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    placeholder="Enter your password"
+                    className="flex-1 bg-transparent text-sm text-[#0A1628] placeholder-[#CBD5E1] outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-[#CBD5E1] hover:text-[#64748B] transition-colors"
+                  >
+                    {showPassword ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 bg-gray-50 focus-within:border-[#0055A4] focus-within:bg-white transition-colors">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  placeholder="••••••••"
-                  className="flex-1 bg-transparent text-sm outline-none text-gray-700 placeholder-gray-400"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+
+              {/* Keep logged in */}
+              <label className="flex items-center gap-2.5 cursor-pointer select-none pt-1">
+                <div
+                  onClick={() => setKeepLoggedIn(!keepLoggedIn)}
+                  className="w-4 h-4 rounded border flex items-center justify-center transition-colors cursor-pointer flex-shrink-0"
+                  style={{
+                    background: keepLoggedIn ? "#0A1628" : "white",
+                    borderColor: keepLoggedIn ? "#0A1628" : "#D1D5DB",
+                  }}
                 >
-                  {showPassword ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                    </svg>
-                  ) : (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
+                  {keepLoggedIn && (
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="2,6 5,9 10,3" />
                     </svg>
                   )}
-                </button>
-              </div>
+                </div>
+                <span className="text-sm text-[#64748B]">Keep me signed in</span>
+              </label>
+              <input type="hidden" name="keepLoggedIn" value={String(keepLoggedIn)} />
+
+              {/* Error */}
+              {state?.error && (
+                <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-red-50 text-red-600 text-sm border border-red-100">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  {state.error}
+                </div>
+              )}
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={pending}
+                className="w-full py-3 rounded-lg text-sm font-semibold text-white bg-[#0A1628] hover:bg-[#0f2040] active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+              >
+                {pending ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                    Signing in…
+                  </span>
+                ) : "Sign In"}
+              </button>
+            </form>
+
+            {/* First-time hint */}
+            <p className="text-sm text-[#64748B] mt-5 leading-relaxed">
+              <span className="font-semibold text-[#0A1628]">First time here?</span> Your username is your GCTU email and your default password is the same. You'll be asked to change it after signing in.
+            </p>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 my-6">
+              <div className="flex-1 h-px bg-[#F1F5F9]" />
+              <span className="text-xs text-[#CBD5E1]">or</span>
+              <div className="flex-1 h-px bg-[#F1F5F9]" />
             </div>
 
-            {/* Keep me logged in */}
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <div
-                onClick={() => setKeepLoggedIn(!keepLoggedIn)}
-                className="w-4 h-4 rounded border flex items-center justify-center transition-colors cursor-pointer"
-                style={{
-                  backgroundColor: keepLoggedIn ? "#003366" : "white",
-                  borderColor: keepLoggedIn ? "#003366" : "#d1d5db",
-                }}
+            {/* Request access */}
+            <div className="text-center">
+              <p className="text-sm text-[#94A3B8] mb-3">Don't have an account?</p>
+              <button
+                type="button"
+                className="text-sm font-semibold text-[#2563EB] hover:underline"
               >
-                {keepLoggedIn && (
-                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="2,6 5,9 10,3" />
-                  </svg>
-                )}
-              </div>
-              <span className="text-sm text-gray-600">Keep me logged in</span>
-            </label>
-            <input type="hidden" name="keepLoggedIn" value={String(keepLoggedIn)} />
+                Request Access
+              </button>
+            </div>
 
-            {/* Error message */}
-            {state?.error && (
-              <p className="text-sm text-red-600" aria-live="polite">
-                {state.error}
-              </p>
-            )}
-
-            {/* Sign in button */}
-            <button
-              type="submit"
-              disabled={pending}
-              className="w-full py-3 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-60 disabled:cursor-not-allowed"
-              style={{ backgroundColor: "#003366" }}
-            >
-              {pending ? "Signing in…" : "Sign In"}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 h-px bg-gray-100" />
-            <span className="text-xs text-gray-400">or</span>
-            <div className="flex-1 h-px bg-gray-100" />
           </div>
+        </main>
 
-          {/* Request access */}
-          <div className="text-center">
-            <p className="text-sm text-gray-500 mb-3">New to the Academic Portal?</p>
-            <button
-              type="button"
-              className="flex items-center gap-2 mx-auto px-5 py-2.5 rounded-lg border text-sm font-medium transition-colors hover:bg-gray-50"
-              style={{ borderColor: "#003366", color: "#003366" }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <line x1="19" y1="8" x2="19" y2="14" />
-                <line x1="22" y1="11" x2="16" y2="11" />
-              </svg>
-              Request Access
-            </button>
-          </div>
-        </div>
-      </main>
+        {/* Footer */}
+        <footer className="px-10 py-6 text-center">
+          <p className="text-xs text-[#CBD5E1]">
+            © 2026 GCTU ICT Directorate ·{" "}
+            <a href="#" className="hover:text-[#64748B] transition-colors">Privacy</a>
+            {" · "}
+            <a href="#" className="hover:text-[#64748B] transition-colors">Terms</a>
+            {" · "}
+            <a href="#" className="hover:text-[#64748B] transition-colors">IT Support</a>
+          </p>
+        </footer>
 
-      {/* Footer */}
-      <footer className="text-center py-6 px-4">
-        <p className="text-xs text-gray-400 mb-1">
-          Secure login powered by the GCTU ICT Directorate.
-        </p>
-        <p className="text-xs text-gray-400 mb-4">
-          Ensure you are on the official{" "}
-          <span className="font-medium" style={{ color: "#0055A4" }}>
-            portal.gctu.edu.gh
-          </span>{" "}
-          domain.
-        </p>
-        <div className="flex items-center justify-center gap-4 text-xs text-gray-400">
-          <span>© 2024 Ghana Communication Technology University. All rights reserved.</span>
-          <span>·</span>
-          <a href="#" className="hover:underline" style={{ color: "#0055A4" }}>Privacy Policy</a>
-          <span>·</span>
-          <a href="#" className="hover:underline" style={{ color: "#0055A4" }}>Terms of Service</a>
-          <span>·</span>
-          <a href="#" className="hover:underline" style={{ color: "#0055A4" }}>IT Support</a>
-        </div>
-      </footer>
+      </div>
     </div>
   );
 }
