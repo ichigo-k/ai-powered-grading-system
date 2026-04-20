@@ -5,51 +5,51 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --primary: oklch(0.205 0 0);
-  --primary-mid: #0D2045;
-  --primary-light: #1a3a6b;
-  --accent: oklch(0.97 0 0);
+  --primary: #002388;
+  --primary-mid: #0055A4;
+  --primary-light: #3a6fd8;
+  --accent: #FFCC00;
   --accent-hover: #e6b800;
-  --blue: #2563EB;
-  --blue-light: #3B82F6;
-  --surface: #F4F6FB;
+  --blue: #0055A4;
+  --blue-light: #3a6fd8;
+  --surface: #ffffff;
   --surface-card: #ffffff;
-  --border: oklch(0.922 0 0);
-  --text-primary: #0A1628;
+  --border: #E2E8F0;
+  --text-primary: #002388;
   --text-secondary: #64748B;
   --text-muted: #94A3B8;
   --success: #10B981;
   --warning: #F59E0B;
   --danger: #EF4444;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #ffffff;
+  --foreground: #002388;
+  --card: #ffffff;
+  --card-foreground: #002388;
+  --popover: #ffffff;
+  --popover-foreground: #002388;
+  --primary-foreground: #ffffff;
+  --secondary: #FFCC00;
+  --secondary-foreground: #002388;
+  --muted: #ffffff;
+  --muted-foreground: #64748B;
+  --accent-foreground: #002388;
   --destructive: oklch(0.577 0.245 27.325);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --input: #E2E8F0;
+  --ring: #0055A4;
+  --chart-1: #002388;
+  --chart-2: #0055A4;
+  --chart-3: #FFCC00;
+  --chart-4: #3a6fd8;
+  --chart-5: #F8F9FA;
+  --radius: 8px;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #002388;
+  --sidebar-primary: #002388;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #FFCC00;
+  --sidebar-accent-foreground: #002388;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #0055A4;
 }
 
 @theme inline {
@@ -58,9 +58,9 @@
   --color-primary: var(--primary);
   --color-accent: var(--accent);
   --color-surface: var(--surface);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-inter);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -102,8 +102,17 @@
 }
 
 body {
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
 }
 
 ::selection {
@@ -116,13 +125,16 @@ body {
   width: 5px;
   height: 5px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #CBD5E1;
   border-radius: 99px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
 }
@@ -137,6 +149,7 @@ body {
 .card-hover {
   transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
+
 .card-hover:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(10, 22, 40, 0.10);
@@ -155,12 +168,14 @@ body {
   background: #E2E8F0;
   overflow: hidden;
 }
+
 .progress-fill {
   height: 100%;
   border-radius: 99px;
   background: linear-gradient(90deg, #2563EB 0%, #3B82F6 100%);
   transition: width 0.6s ease;
 }
+
 .progress-fill-gold {
   background: linear-gradient(90deg, #F5C518 0%, #e6b800 100%);
 }
@@ -203,10 +218,13 @@ body {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
+
   html {
     @apply font-sans;
+    font-family: var(--font-inter), Arial, Helvetica, sans-serif;
   }
 }

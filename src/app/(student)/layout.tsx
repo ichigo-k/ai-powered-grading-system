@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/session"
-import StudentSidebar from "@/components/layout/StudentSidebar"
+import StudentNavbar from "@/components/layout/StudentNavbar"
+import StudentFooter from "@/components/layout/StudentFooter"
 
 export default async function StudentLayout({
   children,
@@ -14,14 +15,15 @@ export default async function StudentLayout({
   }
 
   return (
-    <div className="flex min-h-screen" style={{ backgroundColor: "#F4F6FB" }}>
-      <StudentSidebar
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F9FBFD" }}>
+      <StudentNavbar
         userName={session.user.name}
         userId={session.user.userId}
       />
-      <main className="flex-1 ml-64 p-8 min-h-screen">
+      <main className="flex-1 p-6 md:p-8 animate-in fade-in duration-500">
         {children}
       </main>
+      <StudentFooter />
     </div>
   )
 }

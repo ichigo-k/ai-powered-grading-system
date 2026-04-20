@@ -73,7 +73,7 @@ export default function Sidebar({ role, userName, userId, navItems }: SidebarPro
         </div>
         <div>
           <p className="text-white font-bold text-sm leading-tight tracking-wide">GCTU</p>
-          <p className="text-xs leading-tight" style={{ color: "rgba(245,197,24,0.8)" }}>Academic Lumina</p>
+          <p className="text-xs leading-tight" style={{ color: "rgba(245,197,24,0.8)" }}>Exam Portal</p>
         </div>
       </div>
 
@@ -99,9 +99,8 @@ export default function Sidebar({ role, userName, userId, navItems }: SidebarPro
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group ${
-                isActive ? "nav-active" : "hover:bg-white/5"
-              }`}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group ${isActive ? "nav-active" : "hover:bg-white/5"
+                }`}
               style={isActive ? { color: "#F5C518" } : { color: "rgba(255,255,255,0.65)" }}
             >
               <span
