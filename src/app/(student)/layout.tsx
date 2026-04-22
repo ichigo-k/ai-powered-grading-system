@@ -20,7 +20,7 @@ export default async function StudentLayout({
         userName={session.user.name}
         userId={session.user.userId}
       />
-      <main className="flex-1 p-6 md:p-8 animate-in fade-in duration-500">
+      <main className="flex-1 px-4 md:px-8 py-6 animate-in fade-in duration-500">
         {children}
       </main>
       <StudentFooter />
