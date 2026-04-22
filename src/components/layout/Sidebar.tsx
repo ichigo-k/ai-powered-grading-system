@@ -55,41 +55,28 @@ export default function Sidebar({ role, userName, userId, navItems }: SidebarPro
   return (
     <aside
       className="fixed top-0 left-0 h-full w-64 flex flex-col z-40"
-      style={{ background: "linear-gradient(180deg, #0A1628 0%, #0D2045 100%)" }}
+      style={{ backgroundColor: "transparent" }}
     >
       {/* Logo area */}
-      <div className="flex items-center gap-3 px-5 py-5 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-          style={{ background: "rgba(245,197,24,0.15)", border: "1.5px solid rgba(245,197,24,0.3)" }}
-        >
+      <div className="flex items-center gap-3 px-6 py-8">
+        <div className="flex items-center justify-center flex-shrink-0">
           <Image
             src="/logos/gctu-logo.png"
             alt="GCTU"
-            width={28}
-            height={28}
+            width={42}
+            height={42}
             className="object-contain"
           />
         </div>
         <div>
-          <p className="text-white font-bold text-sm leading-tight tracking-wide">GCTU</p>
-          <p className="text-xs leading-tight" style={{ color: "rgba(245,197,24,0.8)" }}>Exam Portal</p>
+          <p className="font-black text-[#002388] text-xl tracking-tighter leading-none">Exam Portal</p>
+          <p className="text-[10px] font-bold leading-tight uppercase tracking-[0.2em] mt-1" style={{ color: "#94A3B8" }}>Academic Admin</p>
         </div>
       </div>
 
-      {/* Role pill */}
-      <div className="px-5 pt-4 pb-2">
-        <span
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider"
-          style={{ background: "rgba(245,197,24,0.12)", color: "#F5C518" }}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-          {roleLabel[role]}
-        </span>
-      </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-2 overflow-y-auto space-y-0.5">
+      <nav className="flex-1 px-4 py-2 overflow-y-auto space-y-1">
         {navItems.map((item) => {
           const isActive =
             pathname === item.href ||
@@ -99,62 +86,25 @@ export default function Sidebar({ role, userName, userId, navItems }: SidebarPro
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group ${isActive ? "nav-active" : "hover:bg-white/5"
-                }`}
-              style={isActive ? { color: "#F5C518" } : { color: "rgba(255,255,255,0.65)" }}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 group ${
+                isActive ? "bg-[#EEF2FF] shadow-sm" : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#002388]"
+              }`}
+              style={isActive ? { color: "#002388" } : {}}
             >
               <span
-                className="flex-shrink-0 transition-colors"
-                style={isActive ? { color: "#F5C518" } : { color: "rgba(255,255,255,0.4)" }}
+                className={`flex-shrink-0 transition-colors ${isActive ? "text-[#002388]" : "text-[#94A3B8] group-hover:text-[#002388]"}`}
               >
                 {item.icon}
               </span>
               <span>{item.label}</span>
               {isActive && (
-                <span className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: "#F5C518" }} />
+                <div className="ml-auto w-1.5 h-5 rounded-full bg-[#002388]" />
               )}
             </Link>
           )
         })}
       </nav>
 
-      {/* Bottom section */}
-      <div className="px-3 pb-4 space-y-1 border-t pt-3" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-        <button
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-white/5"
-          style={{ color: "rgba(255,255,255,0.5)" }}
-        >
-          <SupportIcon />
-          <span>Support</span>
-        </button>
-
-        {/* User row */}
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)" }}>
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
-            style={{ background: "linear-gradient(135deg, #F5C518 0%, #e6b800 100%)", color: "#0A1628" }}
-          >
-            {getInitials(userName, userId)}
-          </div>
-          <div className="flex-1 min-w-0">
-            {userName && (
-              <p className="text-white text-xs font-semibold truncate">{userName}</p>
-            )}
-            <p className="text-xs truncate" style={{ color: "rgba(255,255,255,0.4)" }}>{userId}</p>
-          </div>
-        </div>
-
-        <form action={signOutAction}>
-          <button
-            type="submit"
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-red-500/10"
-            style={{ color: "#EF4444" }}
-          >
-            <SignOutIcon />
-            <span>Sign Out</span>
-          </button>
-        </form>
-      </div>
     </aside>
   )
 }
