@@ -1,14 +1,19 @@
 export default function StudentFooter() {
   const year = new Date().getFullYear()
+
   return (
-    <footer className="border-t mt-auto" style={{ borderColor: "#E2E8F0", background: "#F9FBFD" }}>
-      <div className="max-w-[1400px] mx-auto px-6 md:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+    <footer className="border-t" style={{ borderColor: "#E2E8F0" }}>
+      <div className="max-w-6xl mx-auto px-4 md:px-6 h-12 flex items-center justify-between gap-4">
         <p className="text-xs" style={{ color: "#94A3B8" }}>
-          © {year} Ghana Communication Technology University. All rights reserved.
+          © {year} GCTU. All rights reserved.
         </p>
-        <p className="text-xs" style={{ color: "#CBD5E1" }}>
-          Exam Portal · v1.0
-        </p>
+        <div className="flex items-center gap-4">
+          {["Privacy Policy", "Help Desk", "Contact"].map((item) => (
+            <a key={item} href="#" className="text-xs transition-colors hover:text-[#002388]" style={{ color: "#94A3B8" }}>
+              {item}
+            </a>
+          ))}
+        </div>
       </div>
     </footer>
   )
