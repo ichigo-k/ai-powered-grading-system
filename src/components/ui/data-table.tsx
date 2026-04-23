@@ -105,13 +105,13 @@ export function DataTable<TData, TValue>({
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="ml-auto h-10 gap-2 rounded-xl border-slate-200 text-slate-600 font-bold text-[11px] uppercase tracking-widest hover:bg-slate-50">
+              <Button variant="outline" size="sm" className="ml-auto h-10 gap-2 rounded-xl border-slate-200 text-slate-600 font-semibold text-[11px] uppercase tracking-wider hover:bg-slate-50">
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 View
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[180px] rounded-xl">
-              <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Toggle Columns</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Toggle Columns</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {table
                 .getAllColumns()
@@ -204,14 +204,14 @@ export function DataTable<TData, TValue>({
             </div>
             <div className="flex flex-wrap items-center gap-4 sm:gap-6 lg:gap-8">
               <div className="flex items-center gap-2">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-tight">Rows</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Rows</p>
                 <Select
                   value={`${table.getState().pagination.pageSize}`}
                   onValueChange={(value) => {
                     table.setPageSize(Number(value))
                   }}
                 >
-                  <SelectTrigger className="h-8 w-[70px] rounded-lg border-slate-200 text-xs font-bold">
+                  <SelectTrigger className="h-8 w-[70px] rounded-lg border-slate-200 text-xs font-semibold">
                     <SelectValue placeholder={table.getState().pagination.pageSize} />
                   </SelectTrigger>
                   <SelectContent side="top" className="rounded-xl">
@@ -223,7 +223,7 @@ export function DataTable<TData, TValue>({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="text-xs font-bold text-slate-600 uppercase tracking-tight">
+              <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Page {table.getState().pagination.pageIndex + 1} of{" "}
                 {table.getPageCount()}
               </div>

@@ -39,21 +39,21 @@ export default function AdminClassesPage() {
 				)
 			},
 			cell: ({ row }) => (
-				<span className="font-bold text-slate-900 group-hover:text-[#002388] transition-colors">{row.getValue("name")}</span>
+				<span className="font-semibold text-slate-900 group-hover:text-[#002388] transition-colors">{row.getValue("name")}</span>
 			),
 		},
 		{
 			accessorKey: "students",
 			header: "Students",
 			cell: ({ row }) => (
-				<span className="text-xs font-bold text-slate-600">{row.getValue("students")}</span>
+				<span className="text-xs font-semibold text-slate-600">{row.getValue("students")}</span>
 			),
 		},
 		{
 			accessorKey: "courses",
 			header: "Courses",
 			cell: ({ row }) => (
-				<span className="text-xs font-bold text-slate-600">{row.getValue("courses")}</span>
+				<span className="text-xs font-semibold text-slate-600">{row.getValue("courses")}</span>
 			),
 		},
 		{

@@ -38,10 +38,10 @@ export default function AdminCoursesPage() {
 			},
 			cell: ({ row }) => (
 				<div className="min-w-0">
-					<p className="truncate font-bold text-slate-900 group-hover:text-[#002388] transition-colors">
+					<p className="truncate font-semibold text-slate-900 group-hover:text-[#002388] transition-colors">
 						{row.getValue("title")}
 					</p>
-					<p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+					<p className="text-[10px] font-semibold text-slate-400 uppercase tracking-tight">
 						{row.original.code}
 					</p>
 				</div>
