@@ -59,7 +59,7 @@ export default function LoginPage() {
                   Welcome Back
                 </h1>
                 <p className="text-sm text-slate-500 mt-2">
-                  Log in to your GCTU Exam Portal
+                  Log in to your GCTU Assessment Portal
                 </p>
               </div>
 

@@ -63,14 +63,14 @@ export default function Sidebar({ role, userName, userId, navItems }: SidebarPro
           <Image
             src="/logos/gctu-logo.png"
             alt="GCTU"
-            width={42}
-            height={42}
+            width={48}
+            height={48}
             className="object-contain"
           />
         </div>
         <div>
-          <p className="font-black text-[#002388] text-xl tracking-tighter leading-none">Exam Portal</p>
-          <p className="text-[10px] font-bold leading-tight uppercase tracking-[0.2em] mt-1" style={{ color: "#94A3B8" }}>Academic Admin</p>
+          <p className="text-xl font-bold leading-none tracking-tight text-[#002388]">GCTU</p>
+          <p className="mt-1 text-sm font-medium text-slate-500">Assessment Portal</p>
         </div>
       </div>
 

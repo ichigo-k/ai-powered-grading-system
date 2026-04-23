@@ -1,98 +1,182 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { User, LogOut, ChevronDown, Bell, Settings, Search, Menu } from "lucide-react"
-import { signOutAction } from "@/app/actions/signout"
-import { SidebarTrigger } from "@/components/ui/sidebar"
+import {
+	Bell,
+	BookOpen,
+	FolderKanban,
+	LayoutDashboard,
+	LogOut,
+	Menu,
+	Settings,
+	User,
+	Users,
+	X,
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { signOutAction } from "@/app/actions/signout";
 
 interface AdminNavbarProps {
-  userName: string | null | undefined
-  userId: string
+	userName: string | null | undefined;
 }
 
-export default function AdminNavbar({ userName, userId }: AdminNavbarProps) {
-  const [isProfileOpen, setIsProfileOpen] = useState(false)
+const navItems = [
+	{ label: "Dashboard", href: "/admin", Icon: LayoutDashboard },
+	{ label: "Users", href: "/admin/users", Icon: Users },
+	{ label: "Classes", href: "/admin/classes", Icon: FolderKanban },
+	{ label: "Courses", href: "/admin/courses", Icon: BookOpen },
+	{ label: "Settings", href: "/admin/settings", Icon: Settings },
+];
 
-  const initials = userName
-    ? userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-    : "AD"
+export default function AdminNavbar({ userName }: AdminNavbarProps) {
+	const pathname = usePathname();
+	const [menuOpen, setMenuOpen] = useState(false);
+	const [profileOpen, setProfileOpen] = useState(false);
 
-  return (
-    <nav className="h-16 border-b border-[#F1F5F9] bg-white sticky top-0 z-30 px-4 flex items-center justify-between">
-      {/* Left: Sidebar Toggle & Search */}
-      <div className="flex items-center gap-4 flex-1">
-        <SidebarTrigger className="text-black scale-110 hover:bg-slate-100 transition-all font-bold" />
-        
-        <div className="hidden md:block w-px h-6 bg-[#F1F5F9]" />
+	return (
+		<>
+			<nav
+				className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-sm"
+				style={{ borderBottom: "1px solid #E2E8F0" }}
+			>
+				<div className="mx-auto flex h-16 max-w-7xl items-center gap-8 px-4 md:px-6">
+					<Link
+						href="/admin"
+						className="flex flex-shrink-0 items-center gap-3"
+					>
+						<Image
+							src="/logos/gctu-logo.png"
+							alt="GCTU"
+							width={40}
+							height={40}
+							className="object-contain"
+						/>
+						<div className="hidden leading-tight sm:block">
+							<p className="text-sm font-bold text-[#002388]">
+								GCTU
+							</p>
+							<p className="text-[10px] font-medium text-slate-500">
+								Assessment Portal
+							</p>
+						</div>
+					</Link>
 
-        <div className="flex-1 max-w-md hidden md:block">
-          <div className="relative group">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8] group-focus-within:text-[#002388] transition-colors" />
-            <input 
-              type="text" 
-              placeholder="Search dashboard..." 
-              className="w-full h-9 bg-[#F8FAFC] border-transparent rounded-lg pl-10 pr-4 text-xs font-medium focus:bg-white focus:ring-4 focus:ring-[#002388]/5 transition-all outline-none"
-            />
-          </div>
-        </div>
-      </div>
+					<div className="hidden flex-1 items-center md:flex">
+						{navItems.map(({ label, href, Icon }) => {
+							const active = pathname === href || (href !== "/admin" && pathname.startsWith(href));
+							return (
+								<Link
+									key={href}
+									href={href}
+									className="relative flex h-16 items-center gap-2 px-3.5 text-sm font-medium transition-colors"
+									style={{ color: active ? "#002388" : "#64748B" }}
+								>
+									<Icon size={15} strokeWidth={active ? 2.5 : 1.8} />
+									{label}
+									{active ? (
+										<span
+											className="absolute bottom-0 left-0 right-0 h-0.5"
+											style={{ background: "#002388" }}
+										/>
+									) : null}
+								</Link>
+							);
+						})}
+					</div>
 
-      {/* Right: Actions and Profile */}
-      <div className="flex items-center gap-3">
-        {/* Notifications */}
-        <button className="p-2 hover:bg-[#F8FAFC] rounded-lg text-[#64748B] hover:text-[#002388] transition-colors relative">
-          <Bell size={18} />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-[#EF4444] rounded-full border-2 border-white" />
-        </button>
+					<div className="ml-auto flex items-center gap-1">
+						<button
+							type="button"
+							className="relative rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
+						>
+							<Bell size={18} />
+							<span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500" />
+						</button>
 
-        <button className="p-2 hover:bg-[#F8FAFC] rounded-lg text-[#64748B] hover:text-[#002388] transition-colors">
-          <Settings size={18} />
-        </button>
+						<div className="relative ml-1">
+							<button
+								type="button"
+								onClick={() => setProfileOpen(!profileOpen)}
+								onBlur={() => setTimeout(() => setProfileOpen(false), 150)}
+								className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-50 hover:text-[#002388]"
+							>
+								<User size={20} />
+							</button>
 
-        <div className="h-6 w-px bg-[#F1F5F9] mx-1" />
+							{profileOpen ? (
+								<div
+									className="absolute right-0 top-full mt-2 w-48 rounded-xl bg-white p-1.5 shadow-lg"
+									style={{ border: "1px solid #E2E8F0" }}
+								>
+									<div className="mb-1 px-3 py-2">
+										<p
+											className="truncate text-xs font-semibold"
+											style={{ color: "#0A1628" }}
+										>
+											{userName}
+										</p>
+										<p className="text-[11px] text-slate-400">Administrator</p>
+									</div>
+									<Link
+										href="/admin/settings"
+										className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50"
+									>
+										<Settings size={14} />
+										Settings
+									</Link>
+									<div className="my-1 h-px bg-slate-100" />
+									<form action={signOutAction}>
+										<button
+											type="submit"
+											className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-500 transition-colors hover:bg-red-50"
+										>
+											<LogOut size={14} />
+											Sign out
+										</button>
+									</form>
+								</div>
+							) : null}
+						</div>
 
-        {/* Profile Dropdown */}
-        <div className="relative">
-          <button 
-            onClick={() => setIsProfileOpen(!isProfileOpen)}
-            onBlur={() => setTimeout(() => setIsProfileOpen(false), 200)}
-            className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-[#F8FAFC] transition-all"
-          >
-            <div className="w-8 h-8 rounded-lg bg-[#002388] flex items-center justify-center text-[10px] font-black text-white shadow-sm">
-              {initials}
-            </div>
-            <div className="flex flex-col items-start hidden sm:flex">
-              <span className="text-[11px] font-black text-[#002388] uppercase tracking-tight leading-none">{userName || "Admin"}</span>
-              <span className="text-[9px] font-bold text-[#94A3B8] leading-none mt-1">ADMINISTRATOR</span>
-            </div>
-            <ChevronDown size={14} className={`text-[#94A3B8] transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
-          </button>
+						<button
+							type="button"
+							className="ml-1 rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600 md:hidden"
+							onClick={() => setMenuOpen(!menuOpen)}
+						>
+							{menuOpen ? <X size={18} /> : <Menu size={18} />}
+						</button>
+					</div>
+				</div>
+			</nav>
 
-          {isProfileOpen && (
-            <div className="absolute top-full right-0 mt-2 w-52 bg-white border border-[#F1F5F9] rounded-xl shadow-xl shadow-blue-900/5 p-2 animate-in fade-in slide-in-from-top-2 duration-150">
-              <Link href="/admin/profile" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#002388] transition-colors">
-                <User size={14} />
-                Edit Profile
-              </Link>
-              
-              <Link href="/admin/settings" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#002388] transition-colors">
-                <Settings size={14} />
-                System Settings
-              </Link>
-
-              <div className="h-px bg-[#F1F5F9] my-1" />
-
-              <form action={signOutAction}>
-                <button type="submit" className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold text-[#EF4444] hover:bg-red-50 transition-colors">
-                  <LogOut size={14} />
-                  Sign Out
-                </button>
-              </form>
-            </div>
-          )}
-        </div>
-      </div>
-    </nav>
-  )
+			{menuOpen ? (
+				<div
+					className="fixed inset-x-0 top-16 z-40 flex flex-col gap-1 bg-white px-4 py-3 md:hidden shadow-lg"
+					style={{ borderBottom: "1px solid #E2E8F0" }}
+				>
+					{navItems.map(({ label, href, Icon }) => {
+						const active = pathname === href || (href !== "/admin" && pathname.startsWith(href));
+						return (
+							<Link
+								key={href}
+								href={href}
+								onClick={() => setMenuOpen(false)}
+								className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+								style={
+									active
+										? { background: "#EEF2FF", color: "#002388" }
+										: { color: "#64748B" }
+								}
+							>
+								<Icon size={15} strokeWidth={active ? 2.5 : 1.8} />
+								{label}
+							</Link>
+						);
+					})}
+				</div>
+			) : null}
+		</>
+	);
 }

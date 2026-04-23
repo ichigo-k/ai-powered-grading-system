@@ -1,199 +1,126 @@
-"use client"
-
-import * as React from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { 
-  LayoutDashboard, 
-  Users, 
-  GraduationCap, 
-  UserCog, 
-  BookOpen, 
-  BarChart3, 
-  Settings,
-  ChevronRight,
-  ShieldCheck,
-  UserCircle
-} from "lucide-react"
+"use client";
 
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-  SidebarRail,
-} from "@/components/ui/sidebar"
+	BookOpen,
+	FolderKanban,
+	LayoutDashboard,
+	LogOut,
+	Settings,
+	Users,
+	ChevronRight
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { signOutAction } from "@/app/actions/signout";
 
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+const navItems = [
+	{ label: "Dashboard", href: "/admin", Icon: LayoutDashboard },
+	{ label: "Users", href: "/admin/users", Icon: Users },
+	{ label: "Classes", href: "/admin/classes", Icon: FolderKanban },
+	{ label: "Courses", href: "/admin/courses", Icon: BookOpen },
+	{ label: "Settings", href: "/admin/settings", Icon: Settings },
+];
 
 interface AdminSidebarProps {
-  userName: string | null | undefined
-  userId: string
+	userName: string | null | undefined;
+	userId: string;
 }
 
-const generalItems = [
-  {
-    title: "Dashboard",
-    url: "/admin",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Course Directory",
-    url: "/admin/courses",
-    icon: BookOpen,
-  },
-  {
-    title: "Reports",
-    url: "/admin/reports",
-    icon: BarChart3,
-  },
-  {
-    title: "System Settings",
-    url: "/admin/settings",
-    icon: Settings,
-  },
-]
+function getInitials(userName: string | null | undefined, userId: string) {
+	if (userName && userName.trim().length > 0) {
+		const parts = userName.trim().split(/\s+/);
+		if (parts.length >= 2) {
+			return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+		}
+		return parts[0].slice(0, 2).toUpperCase();
+	}
 
-const userManagementSubItems = [
-  {
-    title: "Student Mgt",
-    url: "/admin/users/students",
-    icon: GraduationCap,
-  },
-  {
-    title: "Lecturer Mgt",
-    url: "/admin/users/lecturers",
-    icon: UserCog,
-  },
-  {
-    title: "Admin Mgt",
-    url: "/admin/users/admins",
-    icon: ShieldCheck,
-  },
-  {
-    title: "All Users",
-    url: "/admin/users",
-    icon: Users,
-  },
-]
+	return userId.slice(0, 2).toUpperCase();
+}
 
 export default function AdminSidebar({ userName, userId }: AdminSidebarProps) {
-  const pathname = usePathname()
+	const pathname = usePathname();
+	const initials = getInitials(userName, userId);
 
-  return (
-    <Sidebar collapsible="icon" className="border-r-0 bg-white">
-      <SidebarHeader className="h-20 flex items-center px-6">
-        <div className="flex items-center gap-3 w-full overflow-hidden">
-          <div className="flex items-center justify-center flex-shrink-0">
-            <Image
-              src="/logos/gctu-logo.png"
-              alt="GCTU"
-              width={40}
-              height={40}
-              className="object-contain"
-            />
-          </div>
-          <div className="flex flex-col group-data-[collapsible=icon]:hidden whitespace-nowrap">
-            <p className="font-black text-[#002388] text-xl tracking-tighter leading-none">Exam Portal</p>
-            <p className="text-[10px] font-bold leading-tight uppercase tracking-[0.2em] mt-1 text-[#94A3B8]">Academic Admin</p>
-          </div>
-        </div>
-      </SidebarHeader>
+	return (
+		<aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-slate-200 bg-white xl:flex xl:flex-col">
+			<div className="px-6 py-8">
+				<div className="flex items-center gap-3">
+					<div className="flex items-center justify-center shrink-0">
+						<Image
+							src="/logos/gctu-logo.png"
+							alt="GCTU"
+							width={48}
+							height={48}
+							className="object-contain"
+						/>
+					</div>
+					<div>
+						<p className="text-xl font-bold leading-none tracking-tight text-[#002388]">
+							GCTU
+						</p>
+						<p className="mt-1 text-sm font-medium text-slate-500">
+							Assessment Portal
+						</p>
+					</div>
+				</div>
+			</div>
 
-      <SidebarContent className="px-3 pt-6">
-        {/* General Group */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] font-black uppercase tracking-[0.1em] text-[#CBD5E1] px-3 mb-4">
-            General
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              {generalItems.map((item) => {
-                const isActive = pathname === item.url || (item.url !== "/admin" && pathname.startsWith(item.url))
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.title}
-                      className={`h-11 px-4 rounded-xl transition-all duration-200 ${
-                        isActive 
-                          ? "bg-[#002388] text-white shadow-lg shadow-blue-900/20 hover:bg-[#002388] hover:text-white" 
-                          : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#002388]"
-                      }`}
-                    >
-                      <Link href={item.url} className="flex items-center gap-3 font-bold">
-                        <item.icon size={20} className={isActive ? "text-white" : "text-[#94A3B8] group-hover:text-[#002388]"} />
-                        <span className="text-sm">{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+			<div className="flex-1 px-4">
+				<div className="mb-4 px-4 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+					Menu
+				</div>
+				<nav className="space-y-1">
+					{navItems.map(({ label, href, Icon }) => {
+						const active =
+							pathname === href ||
+							(href !== "/admin" && pathname.startsWith(`${href}/`));
 
-        {/* User Management Group (Collapsible) */}
-        <SidebarGroup className="mt-6">
-          <SidebarGroupLabel className="text-[11px] font-black uppercase tracking-[0.1em] text-[#CBD5E1] px-3 mb-4">
-            Management
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <Collapsible defaultOpen className="group/collapsible">
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton 
-                        tooltip="User Management"
-                        className="h-11 px-4 rounded-xl text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#002388] transition-all"
-                    >
-                      <UserCircle size={20} className="text-[#94A3B8]" />
-                      <span className="text-sm font-black text-[#64748B] group-hover:text-[#002388]">User Management</span>
-                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 text-[#94A3B8]" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-1">
-                    <SidebarMenuSub className="border-l-0 ml-4 gap-1">
-                      {userManagementSubItems.map((subItem) => {
-                        const isSubActive = pathname === subItem.url
-                        return (
-                          <SidebarMenuSubItem key={subItem.title}>
-                            <SidebarMenuSubButton asChild isActive={isSubActive}>
-                              <Link href={subItem.url} className={`h-10 px-4 rounded-lg text-xs font-black transition-all duration-200 ${
-                                isSubActive 
-                                  ? "bg-[#F5C518] text-[#002388] shadow-sm shadow-yellow-400/20 hover:bg-[#F5C518] hover:text-[#002388]" 
-                                  : "text-[#64748B] hover:text-[#002388] hover:bg-[#F8FAFC]"
-                              }`}>
-                                {subItem.title}
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        )
-                      })}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
+						return (
+							<Link
+								key={href}
+								href={href}
+								className={`group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 ${active
+									? "bg-slate-900 text-white"
+									: "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+									}`}
+							>
+								<Icon size={18} className={active ? "text-white" : "text-slate-400 group-hover:text-slate-900"} />
+								<span className="flex-1">{label}</span>
+								{active && <ChevronRight size={14} className="opacity-50" />}
+							</Link>
+						);
+					})}
+				</nav>
+			</div>
 
-      <SidebarRail />
-    </Sidebar>
-  )
+			<div className="border-t border-slate-100 p-4">
+				<div className="rounded-2xl bg-slate-50 p-4 border border-slate-100">
+					<div className="flex items-center gap-3">
+						<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-xs font-bold text-white uppercase">
+							{initials}
+						</div>
+						<div className="min-w-0 flex-1">
+							<p className="truncate text-sm font-bold text-slate-900">
+								{userName ?? "Admin User"}
+							</p>
+							<p className="mt-0.5 text-[10px] font-medium text-slate-500 truncate">
+								System Administrator
+							</p>
+						</div>
+					</div>
+					<form action={signOutAction} className="mt-4">
+						<button
+							type="submit"
+							className="flex w-full items-center justify-center gap-2 rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition-all hover:bg-red-50 hover:border-red-100 hover:text-red-600"
+						>
+							<LogOut size={14} />
+							Sign Out
+						</button>
+					</form>
+				</div>
+			</div>
+		</aside>
+	);
 }

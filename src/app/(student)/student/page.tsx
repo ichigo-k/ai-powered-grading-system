@@ -61,67 +61,7 @@ export default async function StudentDashboardPage() {
 
 			{ongoing.length > 0 && <LiveBanner items={ongoing} />}
 
-			{nextAssessment && nextAssessment.status !== "ongoing" ? (
-				<section className="rounded-xl border border-slate-200 bg-white p-6 lg:p-8">
-					<div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-						<div className="space-y-5 flex-1">
-							<div className="flex flex-wrap items-center gap-3">
-								<span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#002388]">
-									{nextAssessment.status === "ongoing" ? (
-										<>
-											<span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
-											Live now
-										</>
-									) : (
-										"Next assessment"
-									)}
-								</span>
-								<span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600">
-									{nextAssessment.courseCode}
-								</span>
-							</div>
 
-							<div>
-								<h2 className="text-2xl lg:text-3xl font-semibold text-slate-900">
-									{nextAssessment.title}
-								</h2>
-								<p className="mt-1.5 flex items-center gap-2 text-slate-600">
-									<BookOpen size={16} className="opacity-70" />
-									{nextAssessment.course}
-								</p>
-							</div>
-
-							<div className="flex flex-wrap gap-3 text-sm text-slate-600">
-								<div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
-									<Calendar size={16} className="text-slate-400" />
-									{formatAssessmentDate(nextAssessment.date, "long")}
-								</div>
-								<div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
-									<Clock size={16} className="text-slate-400" />
-									{nextAssessment.time}
-								</div>
-								<div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
-									<MapPin size={16} className="text-slate-400" />
-									{nextAssessment.venue}
-								</div>
-							</div>
-						</div>
-
-						<div className="flex min-w-[220px] flex-col justify-center rounded-xl border border-slate-200 p-5 lg:p-6">
-							<p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-								Countdown
-							</p>
-							<p className="mt-2 text-2xl lg:text-3xl font-semibold text-[#002388]">
-								{getRelativeLabel(nextAssessment.date)}
-							</p>
-							<p className="mt-2 text-sm text-slate-500 leading-relaxed">
-								{nextAssessment.note ??
-									"Make sure to arrive at least 15 minutes early."}
-							</p>
-						</div>
-					</div>
-				</section>
-			) : null}
 
 			<section className="rounded-xl border border-slate-200 bg-white px-6 py-4 grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100">
 				{[
