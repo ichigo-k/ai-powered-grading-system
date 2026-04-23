@@ -22,6 +22,7 @@ export default function LoginPage() {
           src="/assests/login-image.jpg"
           alt="Academic setting"
           fill
+          sizes="(max-width: 1024px) 0vw, (max-width: 1280px) 50vw, 42vw"
           className="object-cover"
           priority
         />

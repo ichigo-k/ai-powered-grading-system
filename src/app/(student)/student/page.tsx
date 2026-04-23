@@ -3,7 +3,6 @@ import { getSession } from "@/lib/session";
 import {
 	formatAssessmentDate,
 	getRelativeLabel,
-	gradeColor,
 	studentAlerts,
 	studentAssessments,
 	typeStyles,
@@ -20,6 +19,7 @@ import {
 	Award,
 	BellDot
 } from "lucide-react";
+import LiveBanner from "./LiveBanner";
 
 export default async function StudentDashboardPage() {
 	const session = await getSession();
@@ -47,7 +47,7 @@ export default async function StudentDashboardPage() {
 		: 0;
 
 	return (
-		<div className="mx-auto max-w-6xl space-y-8 pb-8">
+		<div className="mx-auto max-w-6xl space-y-6 pb-8">
 			<header className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
 				<div>
 					<h1 className="text-2xl font-semibold text-slate-900">
@@ -59,12 +59,14 @@ export default async function StudentDashboardPage() {
 				</div>
 			</header>
 
-			{nextAssessment ? (
-				<section className="rounded-2xl border border-[#002388]/10 bg-[#002388]/[0.02] p-6 lg:p-8">
+			{ongoing.length > 0 && <LiveBanner items={ongoing} />}
+
+			{nextAssessment && nextAssessment.status !== "ongoing" ? (
+				<section className="rounded-xl border border-slate-200 bg-white p-6 lg:p-8">
 					<div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 						<div className="space-y-5 flex-1">
 							<div className="flex flex-wrap items-center gap-3">
-								<span className="inline-flex items-center gap-1.5 rounded-full bg-[#002388]/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#002388]">
+								<span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#002388]">
 									{nextAssessment.status === "ongoing" ? (
 										<>
 											<span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
@@ -74,7 +76,7 @@ export default async function StudentDashboardPage() {
 										"Next assessment"
 									)}
 								</span>
-								<span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+								<span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600">
 									{nextAssessment.courseCode}
 								</span>
 							</div>
@@ -90,22 +92,22 @@ export default async function StudentDashboardPage() {
 							</div>
 
 							<div className="flex flex-wrap gap-3 text-sm text-slate-600">
-								<div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 border border-slate-200">
+								<div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
 									<Calendar size={16} className="text-slate-400" />
 									{formatAssessmentDate(nextAssessment.date, "long")}
 								</div>
-								<div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 border border-slate-200">
+								<div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
 									<Clock size={16} className="text-slate-400" />
 									{nextAssessment.time}
 								</div>
-								<div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 border border-slate-200">
+								<div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
 									<MapPin size={16} className="text-slate-400" />
 									{nextAssessment.venue}
 								</div>
 							</div>
 						</div>
 
-						<div className="flex min-w-[220px] flex-col justify-center rounded-2xl border border-slate-200 bg-white p-5 lg:p-6 shadow-sm">
+						<div className="flex min-w-[220px] flex-col justify-center rounded-xl border border-slate-200 p-5 lg:p-6">
 							<p className="text-xs font-medium uppercase tracking-wider text-slate-500">
 								Countdown
 							</p>
@@ -121,196 +123,139 @@ export default async function StudentDashboardPage() {
 				</section>
 			) : null}
 
-			<section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+			<section className="rounded-xl border border-slate-200 bg-white px-6 py-4 grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100">
 				{[
-					{
-						label: "Upcoming",
-						value: upcoming.length,
-						icon: Calendar,
-						color: "#1967D2",
-						bg: "#EFF6FF",
-					},
-					{
-						label: "Live now",
-						value: ongoing.length,
-						icon: AlertCircle,
-						color: "#16A34A",
-						bg: "#DCFCE7",
-					},
-					{
-						label: "Completed",
-						value: completed.length,
-						icon: CheckCircle2,
-						color: "#475569",
-						bg: "#F8FAFC",
-					},
-					{
-						label: "Average score",
-						value: `${averageScore}%`,
-						icon: TrendingUp,
-						color: "#D97706",
-						bg: "#FFF7ED",
-					},
-				].map((item) => (
-					<div
-						key={item.label}
-						className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 transition-colors hover:border-slate-300"
-					>
-						<div className="flex items-center justify-between">
-							<span className="text-sm font-medium text-slate-500">
-								{item.label}
-							</span>
-							<div
-								className="rounded-full p-2"
-								style={{ background: item.bg, color: item.color }}
-							>
-								<item.icon size={16} />
-							</div>
+					{ label: "Upcoming", value: upcoming.length, icon: Calendar },
+					{ label: "Live now", value: ongoing.length, icon: AlertCircle },
+					{ label: "Completed", value: completed.length, icon: CheckCircle2 },
+					{ label: "Avg. score", value: `${averageScore}%`, icon: TrendingUp },
+				].map((item, i) => (
+					<div key={item.label} className={`flex items-center gap-3 px-5 first:pl-0 last:pr-0 ${i >= 2 ? "mt-4 sm:mt-0 border-t sm:border-t-0 border-slate-100 pt-4 sm:pt-0" : ""}`}>
+						<item.icon size={16} className="text-slate-400 shrink-0" />
+						<div>
+							<p className="text-xs text-slate-400">{item.label}</p>
+							<p className="text-xl font-semibold text-slate-900">{item.value}</p>
 						</div>
-						<p className="mt-4 text-3xl font-semibold text-slate-900">
-							{item.value}
-						</p>
 					</div>
 				))}
 			</section>
 
-			<div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+			<div className="grid gap-6 xl:grid-cols-2">
 				<section className="flex flex-col gap-4">
-					<div className="flex items-center justify-between px-1">
+					<div className="px-1">
 						<h2 className="flex items-center gap-2 text-lg font-medium text-slate-900">
-							<Award className="text-[#002388]" size={20} />
-							Recent Results
+							<Calendar className="text-[#002388]" size={20} />
+							Upcoming This Week
 						</h2>
-						<Link
-							href="/student/assessments"
-							className="flex items-center gap-1 text-sm font-medium text-[#002388] hover:text-[#0B4DBB] transition-colors"
-						>
-							View all
-							<ArrowRight size={14} />
-						</Link>
 					</div>
-
-					<div className="flex flex-col gap-3">
-						{completed.slice(0, 4).map((assessment) => {
-							const tone = gradeColor(assessment.grade ?? "C");
-							return (
-								<div
-									key={assessment.id}
-									className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-slate-300 sm:flex-row sm:items-center sm:justify-between"
-								>
-									<div className="flex items-center gap-4">
-										<div
-											className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl"
-											style={{ background: `${assessment.courseColor}15` }}
-										>
-											<BookOpen size={20} style={{ color: assessment.courseColor }} />
-										</div>
-										<div>
-											<div className="flex flex-wrap items-center gap-2">
-												<h3 className="text-base font-medium text-slate-900">
-													{assessment.title}
-												</h3>
-												<span
-													className="rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider"
-													style={{
-														background: typeStyles[assessment.type].bg,
-														color: typeStyles[assessment.type].text,
-													}}
-												>
-													{assessment.type}
-												</span>
-											</div>
-											<p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
-												<span className="font-medium text-slate-600">{assessment.courseCode}</span>
-												<span className="h-1 w-1 rounded-full bg-slate-300"></span>
-												{formatAssessmentDate(assessment.date)}
-											</p>
+					<div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+						{[...ongoing, ...upcoming].slice(0, 3).map((assessment, i) => (
+							<div
+								key={assessment.id}
+								className={`p-4 transition-colors hover:bg-slate-50 ${i !== 0 ? "border-t border-slate-200" : ""}`}
+							>
+								<div className="flex items-start justify-between gap-3">
+									<div className="space-y-1">
+										<h3 className="font-medium text-slate-900">
+											{assessment.title}
+										</h3>
+										<div className="flex flex-col gap-1 text-sm text-slate-500 sm:flex-row sm:items-center">
+											<span className="font-medium text-slate-600">{assessment.courseCode}</span>
+											<span className="hidden h-1 w-1 rounded-full bg-slate-300 sm:block"></span>
+											<span className="flex items-center gap-1.5">
+												<Clock size={14} />
+												{assessment.time}
+											</span>
 										</div>
 									</div>
-									<div className="flex items-center justify-between sm:flex-col sm:items-end sm:justify-center">
-										<div
-											className="inline-flex items-center justify-center rounded-xl px-3 py-1.5 text-base font-semibold"
-											style={{ background: tone.bg, color: tone.text }}
-										>
-											{assessment.grade}
-										</div>
-										<p className="mt-1.5 text-sm font-medium text-slate-400">
-											{assessment.score} / {assessment.total} pts
-										</p>
-									</div>
+									<span className="flex-shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600">
+										{getRelativeLabel(assessment.date)}
+									</span>
 								</div>
-							);
-						})}
+							</div>
+						))}
 					</div>
 				</section>
 
-				<div className="flex flex-col gap-6">
-					<section className="flex flex-col gap-4">
-						<div className="px-1">
-							<h2 className="flex items-center gap-2 text-lg font-medium text-slate-900">
-								<Calendar className="text-[#002388]" size={20} />
-								Upcoming This Week
-							</h2>
-						</div>
-						<div className="flex flex-col gap-3">
-							{[...ongoing, ...upcoming].slice(0, 3).map((assessment) => (
-								<div
-									key={assessment.id}
-									className="rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-[#002388]/30"
-								>
-									<div className="flex items-start justify-between gap-3">
-										<div className="space-y-1">
-											<h3 className="font-medium text-slate-900">
-												{assessment.title}
-											</h3>
-											<div className="flex flex-col gap-1 text-sm text-slate-500 sm:flex-row sm:items-center">
-												<span className="font-medium text-slate-600">{assessment.courseCode}</span>
-												<span className="hidden h-1 w-1 rounded-full bg-slate-300 sm:block"></span>
-												<span className="flex items-center gap-1.5">
-													<Clock size={14} />
-													{assessment.time}
-												</span>
-											</div>
-										</div>
-										<span className="flex-shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-[#002388]">
-											{getRelativeLabel(assessment.date)}
-										</span>
-									</div>
+				<section className="flex flex-col gap-4">
+					<div className="px-1">
+						<h2 className="flex items-center gap-2 text-lg font-medium text-slate-900">
+							<BellDot className="text-[#002388]" size={20} />
+							Important Alerts
+						</h2>
+					</div>
+					<div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+						{studentAlerts.map((alert, i) => (
+							<div
+								key={alert.id}
+								className={`flex gap-3 p-4 transition-colors hover:bg-slate-50 ${i !== 0 ? "border-t border-slate-200" : ""}`}
+							>
+								<div className="mt-0.5 flex-shrink-0 text-amber-500">
+									<AlertCircle size={18} />
 								</div>
-							))}
-						</div>
-					</section>
-
-					<section className="flex flex-col gap-4">
-						<div className="px-1">
-							<h2 className="flex items-center gap-2 text-lg font-medium text-slate-900">
-								<BellDot className="text-[#002388]" size={20} />
-								Important Alerts
-							</h2>
-						</div>
-						<div className="flex flex-col gap-3">
-							{studentAlerts.map((alert) => (
-								<div
-									key={alert.id}
-									className="flex gap-3 rounded-2xl border border-amber-100 bg-amber-50/50 p-4"
-								>
-									<div className="mt-0.5 flex-shrink-0 text-amber-500">
-										<AlertCircle size={18} />
-									</div>
-									<div>
-										<h3 className="font-medium text-amber-900 text-sm">
-											{alert.title}
-										</h3>
-										<p className="mt-1 text-sm text-amber-700/80">
-											{alert.detail}
-										</p>
-									</div>
+								<div>
+									<h3 className="font-medium text-slate-800 text-sm">
+										{alert.title}
+									</h3>
+									<p className="mt-0.5 text-sm text-slate-500">
+										{alert.detail}
+									</p>
 								</div>
-							))}
-						</div>
-					</section>
-				</div>
+							</div>
+						))}
+					</div>
+				</section>
 			</div>
+
+			<section className="flex flex-col gap-4">
+				<div className="flex items-center justify-between px-1">
+					<h2 className="flex items-center gap-2 text-lg font-medium text-slate-900">
+						<Award className="text-[#002388]" size={20} />
+						Recent Results
+					</h2>
+					<Link
+						href="/student/assessments"
+						className="flex items-center gap-1 text-sm font-medium text-[#002388] hover:text-[#0B4DBB] transition-colors"
+					>
+						View all
+						<ArrowRight size={14} />
+					</Link>
+				</div>
+
+				<div className="rounded-xl overflow-hidden bg-white border border-slate-200">
+					{completed.slice(0, 4).map((assessment, i) => {
+						const pct = assessment.score != null && assessment.total ? Math.round((assessment.score / assessment.total) * 100) : 0;
+						const barColor = pct >= 85 ? "#22c55e" : pct >= 60 ? "#3b82f6" : "#f59e0b";
+						return (
+							<div
+								key={assessment.id}
+								className={`flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between transition-colors hover:bg-slate-50 ${i !== 0 ? "border-t border-slate-200" : ""}`}
+							>
+								<div className="min-w-0 flex-1">
+									<p className="font-semibold text-slate-900 truncate">{assessment.title}</p>
+									<p className="text-xs text-slate-400 mt-0.5 truncate">{assessment.course}</p>
+								</div>
+								<div className="flex items-center gap-6 shrink-0">
+									<span className="text-sm text-slate-400">{formatAssessmentDate(assessment.date)}</span>
+									<span
+										className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider w-14 text-center"
+										style={{ background: typeStyles[assessment.type].bg, color: typeStyles[assessment.type].text }}
+									>
+										{assessment.type}
+									</span>
+									<div className="flex items-center gap-2 w-32">
+										<div className="h-1.5 flex-1 rounded-full bg-slate-100">
+											<div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: barColor }} />
+										</div>
+										<p className="text-sm font-semibold text-slate-800 whitespace-nowrap w-14 text-right">{assessment.score}/{assessment.total}</p>
+									</div>
+								</div>
+							</div>
+						);
+					})}
+				</div>
+			</section>
+
 		</div>
 	);
 }
