@@ -6,7 +6,6 @@ import {
 	Clock3,
 	MapPin,
 	Search,
-	BookOpen,
 	FileText,
 	ArrowRight,
 	Filter
@@ -16,16 +15,14 @@ import {
 	formatAssessmentDate,
 	getRelativeLabel,
 	gradeColor,
-	type StudentAssessment,
-	statusStyles,
 	studentAssessments,
 	studentCourses,
 	typeStyles,
 } from "@/lib/student-assessments";
 
 const tabs = [
-	{ key: "upcoming", label: "Upcoming", icon: CalendarDays },
 	{ key: "ongoing", label: "Live", icon: Clock3 },
+	{ key: "upcoming", label: "Upcoming", icon: CalendarDays },
 	{ key: "completed", label: "Completed", icon: CheckCircle2 },
 ] as const;
 
@@ -33,7 +30,7 @@ type VisibleTab = (typeof tabs)[number]["key"];
 type TypeFilter = "all" | "exam" | "quiz" | "test";
 
 export default function StudentAssessmentsPage() {
-	const [activeTab, setActiveTab] = useState<VisibleTab>("upcoming");
+	const [activeTab, setActiveTab] = useState<VisibleTab>("ongoing");
 	const [courseFilter, setCourseFilter] = useState("all");
 	const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
 	const [search, setSearch] = useState("");
@@ -217,7 +214,7 @@ export default function StudentAssessmentsPage() {
 			</div>
 
 			{filteredAssessments.length === 0 ? (
-				<div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">
+				<div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-16 text-center">
 					<div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-400">
 						<Search size={24} />
 					</div>
@@ -237,115 +234,96 @@ export default function StudentAssessmentsPage() {
 					</button>
 				</div>
 			) : (
-				<div className="space-y-4">
-					{filteredAssessments.map((assessment) => (
-						<AssessmentCard key={assessment.id} assessment={assessment} />
-					))}
+				<div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+					{filteredAssessments.map((assessment, i) => {
+						const isCompleted = assessment.status === "completed";
+						const isOngoing = assessment.status === "ongoing";
+						const pct = assessment.score != null && assessment.total
+							? Math.round((assessment.score / assessment.total) * 100)
+							: 0;
+						const barColor = pct >= 85 ? "#22c55e" : pct >= 60 ? "#3b82f6" : "#f59e0b";
+						return (
+							<div
+								key={assessment.id}
+								className={`flex flex-col gap-3 px-6 py-5 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between ${i !== 0 ? "border-t border-slate-200" : ""}`}
+							>
+								<div className="min-w-0 flex-1">
+									<div className="flex flex-wrap items-center gap-2">
+										<p className="font-semibold text-slate-900">{assessment.title}</p>
+										<span
+											className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+											style={{
+												background: typeStyles[assessment.type].bg,
+												color: typeStyles[assessment.type].text,
+											}}
+										>
+											{assessment.type}
+										</span>
+									</div>
+									<p className="mt-0.5 text-xs text-slate-500">
+										<span className="font-medium text-slate-600">{assessment.courseCode}</span>
+										{" · "}{assessment.course}
+									</p>
+									<div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+										<span className="flex items-center gap-1">
+											<CalendarDays size={12} className="text-slate-400" />
+											{formatAssessmentDate(assessment.date, "long")}
+										</span>
+										<span className="flex items-center gap-1">
+											<Clock3 size={12} className="text-slate-400" />
+											{assessment.time} · {assessment.duration}
+										</span>
+										<span className="flex items-center gap-1">
+											<MapPin size={12} className="text-slate-400" />
+											{assessment.venue}
+										</span>
+									</div>
+								</div>
+
+								<div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:gap-1">
+									{isCompleted && assessment.grade ? (
+										<>
+											<span
+												className="inline-flex items-center justify-center rounded-lg px-3 py-1 text-sm font-semibold"
+												style={{
+													background: gradeColor(assessment.grade).bg,
+													color: gradeColor(assessment.grade).text,
+												}}
+											>
+												{assessment.grade}
+											</span>
+											<div className="flex flex-col items-end">
+												<p className="text-xs font-semibold text-slate-700">{assessment.score}/{assessment.total}</p>
+												<div className="mt-1 h-1.5 w-20 rounded-full bg-slate-100">
+													<div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: barColor }} />
+												</div>
+											</div>
+										</>
+									) : (
+										<>
+											<button
+												type="button"
+												className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+													isOngoing
+														? "bg-green-600 text-white hover:bg-green-700"
+														: "bg-[#002388] text-white hover:bg-[#0B4DBB]"
+												}`}
+											>
+												{isOngoing ? "Start" : "View Details"}
+												<ArrowRight size={12} />
+											</button>
+											<p className="text-xs text-slate-400">
+												{isOngoing ? "Open now" : getRelativeLabel(assessment.date)}
+											</p>
+										</>
+									)}
+								</div>
+							</div>
+						);
+					})}
 				</div>
 			)}
 		</div>
 	);
 }
 
-function AssessmentCard({ assessment }: { assessment: StudentAssessment }) {
-	const isCompleted = assessment.status === "completed";
-	const isOngoing = assessment.status === "ongoing";
-	const statusTone = statusStyles[assessment.status];
-
-	return (
-		<article className="group flex flex-col gap-5 lg:flex-row lg:items-center rounded-2xl border border-slate-200 bg-white p-5 lg:p-6 transition-all duration-200 hover:border-slate-300">
-			<div className="flex flex-1 items-start gap-4">
-				<div
-					className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl"
-					style={{ background: `${assessment.courseColor}15` }}
-				>
-					<BookOpen size={20} style={{ color: assessment.courseColor }} />
-				</div>
-
-				<div className="min-w-0 flex-1">
-					<div className="flex flex-wrap items-center gap-2.5">
-						<h3 className="text-lg font-medium text-slate-900">
-							{assessment.title}
-						</h3>
-						<span
-							className="rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider"
-							style={{
-								background: typeStyles[assessment.type].bg,
-								color: typeStyles[assessment.type].text,
-							}}
-						>
-							{assessment.type}
-						</span>
-						<span
-							className="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider"
-							style={{ background: statusTone.bg, color: statusTone.text }}
-						>
-							{isOngoing && <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse"></span>}
-							{assessment.status}
-						</span>
-					</div>
-
-					<p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
-						<span className="font-medium text-slate-700">{assessment.courseCode}</span>
-						<span className="h-1 w-1 rounded-full bg-slate-300"></span>
-						{assessment.course}
-					</p>
-
-					<div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-500">
-						<span className="flex items-center gap-1.5">
-							<CalendarDays size={14} className="text-slate-400" />
-							{formatAssessmentDate(assessment.date, "long")}
-						</span>
-						<span className="flex items-center gap-1.5">
-							<Clock3 size={14} className="text-slate-400" />
-							{assessment.time} / {assessment.duration}
-						</span>
-						<span className="flex items-center gap-1.5">
-							<MapPin size={14} className="text-slate-400" />
-							{assessment.venue}
-						</span>
-					</div>
-				</div>
-			</div>
-
-			<div className="flex flex-col items-start lg:w-[180px] lg:items-end pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-100 mt-2 lg:mt-0">
-				{isCompleted && assessment.grade ? (
-					<div className="flex flex-col items-start lg:items-end w-full">
-						<span
-							className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-xl font-semibold"
-							style={{
-								background: gradeColor(assessment.grade).bg,
-								color: gradeColor(assessment.grade).text,
-							}}
-						>
-							{assessment.grade}
-						</span>
-						<p className="mt-2 text-sm font-medium text-slate-900">
-							{assessment.score} / {assessment.total} pts
-						</p>
-						<p className="text-xs text-slate-400 mt-0.5">Result published</p>
-					</div>
-				) : (
-					<div className="flex flex-col items-start lg:items-end w-full">
-						<button
-							type="button"
-							className={`flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors lg:w-auto ${
-								isOngoing
-									? "bg-green-600 text-white hover:bg-green-700"
-									: "bg-[#002388] text-white hover:bg-[#0B4DBB]"
-							}`}
-						>
-							{isOngoing ? "Start Assessment" : "View Details"}
-							<ArrowRight size={14} />
-						</button>
-						<p className="mt-2 text-xs font-medium text-slate-700">
-							{isOngoing
-								? "Submission window is open"
-								: getRelativeLabel(assessment.date)}
-						</p>
-					</div>
-				)}
-			</div>
-		</article>
-	);
-}
