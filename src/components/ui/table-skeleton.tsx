@@ -1,0 +1,32 @@
+import { Skeleton } from "@/components/ui/skeleton";
+
+export function TableSkeleton() {
+  return (
+    <div className="w-full space-y-4">
+      <div className="flex items-center justify-between space-x-4 pb-4">
+        <div className="flex items-center space-x-2">
+          <Skeleton className="h-10 w-[250px]" />
+          <Skeleton className="h-10 w-[100px]" />
+        </div>
+        <Skeleton className="h-10 w-[120px]" />
+      </div>
+      <div className="rounded-md border border-slate-200">
+        <div className="h-12 border-b border-slate-100 bg-slate-50/50" />
+        <div className="p-0">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="flex h-16 items-center space-x-4 border-b border-slate-100 px-4 last:border-0">
+              <Skeleton className="h-4 w-4 rounded-sm" />
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-[200px]" />
+                <Skeleton className="h-3 w-[150px]" />
+              </div>
+              <Skeleton className="h-4 w-[100px]" />
+              <Skeleton className="h-8 w-8 rounded-md" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

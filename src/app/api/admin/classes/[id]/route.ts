@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logAction } from "@/lib/audit";
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -12,6 +13,12 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     await prisma.class.delete({
       where: { id: classId },
     });
+
+    await logAction(
+      "CLASS_DELETED",
+      `Class with ID ${classId} was deleted`,
+      "CLASS"
+    );
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
@@ -64,6 +71,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           courses: true,
         },
       });
+
+      await logAction(
+        "CLASS_UPDATED",
+        `Class "${updatedClass.name}" (Level ${updatedClass.level}) was updated`,
+        "CLASS"
+      );
+
       return NextResponse.json(updatedClass, { status: 200 });
     } catch (dbError: any) {
       if (dbError.code === "P2002") {

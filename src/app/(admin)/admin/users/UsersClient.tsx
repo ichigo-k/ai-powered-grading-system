@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import AddUserSheet from "./AddUserSheet";
 import BulkImportSheet from "./BulkImportSheet";
+import EditUserSheet from "./EditUserSheet";
 import { ColumnDef } from "@tanstack/react-table";
 import {
 	UserPlus,
@@ -15,6 +16,8 @@ import {
 	GraduationCap,
 	ShieldCheck,
 	ArrowUpDown,
+	Trash2,
+	UserCheck,
 } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +27,16 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { 
+	DropdownMenu, 
+	DropdownMenuContent, 
+	DropdownMenuItem, 
+	DropdownMenuTrigger,
+	DropdownMenuSeparator 
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { toggleUserStatusAction, deleteUserAction } from "@/app/actions/admin-users-server";
 import type { UserWithProfile } from "@/lib/admin-users";
 
 const tabs = [
@@ -46,32 +58,49 @@ function StatusBadge({ status }: { status: UserWithProfile["status"] }) {
 	return <Badge variant={variant}>{label}</Badge>;
 }
 
-function ActionButtons({ user }: { user: UserWithProfile }) {
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+
+interface ActionButtonsProps {
+	user: UserWithProfile;
+	onEdit: (user: UserWithProfile) => void;
+	onDelete: (user: UserWithProfile) => void;
+}
+
+function ActionButtons({ user, onEdit, onDelete }: ActionButtonsProps) {
+	const [loading, setLoading] = useState(false);
+
+	async function handleToggleStatus() {
+		setLoading(true);
+		const result = await toggleUserStatusAction(user.id, user.status);
+		if (result.success) {
+			toast.success(`User ${user.status === "ACTIVE" ? "suspended" : "activated"} successfully`);
+		} else {
+			toast.error(result.error || "Failed to update status");
+		}
+		setLoading(false);
+	}
+
 	return (
 		<div className="text-right">
 			<TooltipProvider>
-				<div className="flex items-center justify-end gap-1">
+				<div className="flex items-center justify-end gap-2">
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<button className="p-2 text-slate-400 hover:text-[#002388] hover:bg-[#002388]/5 rounded-lg transition-all">
-								<Mail size={16} />
-							</button>
-						</TooltipTrigger>
-						<TooltipContent>Email User</TooltipContent>
-					</Tooltip>
-
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">
+							<button 
+								onClick={() => onEdit(user)}
+								className="p-2 text-slate-400 hover:text-[#002388] hover:bg-[#002388]/5 rounded-lg transition-all"
+							>
 								<Edit2 size={16} />
 							</button>
 						</TooltipTrigger>
-						<TooltipContent>Edit Profile</TooltipContent>
+						<TooltipContent>Edit Profile & Class</TooltipContent>
 					</Tooltip>
 
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<button
+								disabled={loading}
+								onClick={handleToggleStatus}
 								className={`p-2 rounded-lg transition-all ${
 									user.status === "SUSPENDED"
 										? "text-emerald-500 hover:bg-emerald-50"
@@ -79,135 +108,64 @@ function ActionButtons({ user }: { user: UserWithProfile }) {
 								}`}
 							>
 								{user.status === "SUSPENDED" ? (
-									<ShieldCheck size={16} />
+									<UserCheck size={16} />
 								) : (
 									<UserX size={16} />
 								)}
 							</button>
 						</TooltipTrigger>
 						<TooltipContent>
-							{user.status === "SUSPENDED" ? "Unsuspend" : "Suspend"}
+							{user.status === "SUSPENDED" ? "Unsuspend User" : "Suspend User"}
 						</TooltipContent>
 					</Tooltip>
 
-					<button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">
-						<MoreVertical size={16} />
-					</button>
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">
+								<MoreVertical size={16} />
+							</button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="w-48">
+							<DropdownMenuItem onClick={() => onEdit(user)}>
+								<Edit2 className="mr-2 h-4 w-4" />
+								Edit Details
+							</DropdownMenuItem>
+							<DropdownMenuSeparator />
+							<DropdownMenuItem 
+								className="text-rose-600 focus:text-rose-600 focus:bg-rose-50"
+								onClick={() => onDelete(user)}
+							>
+								<Trash2 className="mr-2 h-4 w-4" />
+								Delete Account
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
 				</div>
 			</TooltipProvider>
 		</div>
 	);
 }
 
-function nameColumn(): ColumnDef<UserWithProfile> {
-	return {
-		accessorKey: "name",
-		header: ({ column }) => (
-			<Button
-				variant="ghost"
-				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-				className="-ml-4 h-8 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:bg-transparent"
-			>
-				User Name
-				<ArrowUpDown className="ml-2 h-3 w-3" />
-			</Button>
-		),
-		cell: ({ row }) => (
-			<div className="min-w-0">
-				<p className="truncate font-semibold text-slate-900 group-hover:text-[#002388] transition-colors">
-					{row.original.name ?? "—"}
-				</p>
-				<p className="text-[10px] font-semibold text-slate-400 uppercase tracking-tight">
-					{emailLocalPart(row.original.email)}
-				</p>
-			</div>
-		),
-	};
-}
-
-function actionsColumn(): ColumnDef<UserWithProfile> {
-	return {
-		id: "actions",
-		cell: ({ row }) => <ActionButtons user={row.original} />,
-	};
-}
-
-const studentColumns: ColumnDef<UserWithProfile>[] = [
-	nameColumn(),
-	{
-		id: "program",
-		header: "Program",
-		cell: ({ row }) => {
-			const p = row.original.studentProfile;
-			return p ? (
-				<span className="text-xs font-medium text-slate-700">{p.program}</span>
-			) : (
-				<span className="text-xs text-slate-400">—</span>
-			);
-		},
-	},
-	{
-		accessorKey: "status",
-		header: "Status",
-		cell: ({ row }) => <StatusBadge status={row.original.status} />,
-	},
-	actionsColumn(),
-];
-
-const lecturerColumns: ColumnDef<UserWithProfile>[] = [
-	nameColumn(),
-	{
-		id: "deptTitle",
-		header: "Department / Title",
-		cell: ({ row }) => {
-			const p = row.original.lecturerProfile;
-			return p ? (
-				<div>
-					<p className="text-xs font-medium text-slate-700">{p.department}</p>
-					<p className="text-[10px] text-slate-400 font-medium">{p.title}</p>
-				</div>
-			) : (
-				<span className="text-xs text-slate-400">—</span>
-			);
-		},
-	},
-	{
-		accessorKey: "status",
-		header: "Status",
-		cell: ({ row }) => <StatusBadge status={row.original.status} />,
-	},
-	actionsColumn(),
-];
-
-const adminColumns: ColumnDef<UserWithProfile>[] = [
-	nameColumn(),
-	{
-		id: "dateJoined",
-		header: "Date Joined",
-		cell: ({ row }) => (
-			<span className="text-xs font-medium text-slate-700">
-				{new Date(row.original.dateJoined ?? row.original.createdAt).toLocaleDateString()}
-			</span>
-		),
-	},
-	{
-		accessorKey: "status",
-		header: "Status",
-		cell: ({ row }) => <StatusBadge status={row.original.status} />,
-	},
-	actionsColumn(),
-];
-
-const columnsByRole: Record<UserRole, ColumnDef<UserWithProfile>[]> = {
-	STUDENT: studentColumns,
-	LECTURER: lecturerColumns,
-	ADMIN: adminColumns,
-};
-
 export default function UsersClient({ users, classes = [] }: { users: UserWithProfile[]; classes?: any[] }) {
 	const [activeTab, setActiveTab] = useState<UserRole>("STUDENT");
 	const [addUserOpen, setAddUserOpen] = useState(false);
 	const [bulkImportOpen, setBulkImportOpen] = useState(false);
+	const [editUser, setEditUser] = useState<UserWithProfile | null>(null);
+	const [deleteUser, setDeleteUser] = useState<UserWithProfile | null>(null);
+	const [isDeleting, setIsDeleting] = useState(false);
+
+	const executeDelete = async () => {
+		if (!deleteUser) return;
+		setIsDeleting(true);
+		const result = await deleteUserAction(deleteUser.id);
+		if (result.success) {
+			toast.success("User deleted successfully");
+			setDeleteUser(null);
+		} else {
+			toast.error(result.error || "Failed to delete user");
+		}
+		setIsDeleting(false);
+	};
 
 	const counts = useMemo(
 		() => ({
@@ -223,19 +181,102 @@ export default function UsersClient({ users, classes = [] }: { users: UserWithPr
 		[users, activeTab],
 	);
 
+	const columns = useMemo(() => {
+		const baseColumns: ColumnDef<UserWithProfile>[] = [
+			{
+				accessorKey: "name",
+				header: ({ column }) => (
+					<Button
+						variant="ghost"
+						onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+						className="-ml-4 h-8 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:bg-transparent"
+					>
+						User Name
+						<ArrowUpDown className="ml-2 h-3 w-3" />
+					</Button>
+				),
+				cell: ({ row }) => (
+					<div className="min-w-0 group">
+						<p className="truncate font-semibold text-slate-900 group-hover:text-[#002388] transition-colors">
+							{row.original.name ?? "—"}
+						</p>
+						<p className="text-[10px] font-semibold text-slate-400 uppercase tracking-tight">
+							{emailLocalPart(row.original.email)}
+						</p>
+					</div>
+				),
+			},
+		];
+
+		if (activeTab === "STUDENT") {
+			baseColumns.push({
+				id: "program",
+				header: "Program",
+				cell: ({ row }) => {
+					const p = row.original.studentProfile;
+					return p ? (
+						<span className="text-xs font-medium text-slate-700">{p.program}</span>
+					) : (
+						<span className="text-xs text-slate-400">—</span>
+					);
+				},
+			});
+		} else if (activeTab === "LECTURER") {
+			baseColumns.push({
+				id: "deptTitle",
+				header: "Department / Title",
+				cell: ({ row }) => {
+					const p = row.original.lecturerProfile;
+					return p ? (
+						<div>
+							<p className="text-xs font-medium text-slate-700">{p.department}</p>
+							<p className="text-[10px] text-slate-400 font-medium">{p.title}</p>
+						</div>
+					) : (
+						<span className="text-xs text-slate-400">—</span>
+					);
+				},
+			});
+		} else {
+			baseColumns.push({
+				id: "dateJoined",
+				header: "Date Joined",
+				cell: ({ row }) => (
+					<span className="text-xs font-medium text-slate-700">
+						{new Date(row.original.dateJoined ?? row.original.createdAt).toLocaleDateString()}
+					</span>
+				),
+			});
+		}
+
+		baseColumns.push(
+			{
+				accessorKey: "status",
+				header: "Status",
+				cell: ({ row }) => <StatusBadge status={row.original.status} />,
+			},
+			{
+				id: "actions",
+				cell: ({ row }) => <ActionButtons user={row.original} onEdit={setEditUser} onDelete={setDeleteUser} />,
+			}
+		);
+
+		return baseColumns;
+	}, [activeTab]);
+
 	return (
 		<div className="flex flex-col gap-6">
 			{/* Action buttons */}
 			<div className="flex items-center justify-end gap-3">
 				<button
 					onClick={() => setBulkImportOpen(true)}
-					className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50">
+					className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-normal text-slate-700 transition-all hover:bg-slate-50">
 					<Upload size={18} className="text-slate-400" />
 					Bulk Import
 				</button>
 				<button
 					onClick={() => setAddUserOpen(true)}
-					className="flex items-center gap-2 rounded-xl bg-[#002388] px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-[#0B4DBB]"
+					className="flex items-center gap-2 rounded-xl bg-[#002388] px-5 py-2.5 text-sm font-normal text-white transition-all hover:bg-[#0B4DBB]"
 				>
 					<UserPlus size={18} />
 					Add User
@@ -244,6 +285,23 @@ export default function UsersClient({ users, classes = [] }: { users: UserWithPr
 
 			<AddUserSheet open={addUserOpen} onOpenChange={setAddUserOpen} classes={classes} />
 			<BulkImportSheet open={bulkImportOpen} onOpenChange={setBulkImportOpen} classes={classes} />
+			<EditUserSheet 
+				user={editUser} 
+				open={!!editUser} 
+				onOpenChange={(open) => !open && setEditUser(null)} 
+				classes={classes} 
+			/>
+
+			<ConfirmModal
+				open={!!deleteUser}
+				title="Delete Account?"
+				description={`Are you sure you want to delete ${deleteUser?.name || deleteUser?.email}? This will permanently remove their profile and all associated data. This action cannot be undone.`}
+				confirmText="Delete Account"
+				isDestructive={true}
+				isLoading={isDeleting}
+				onConfirm={executeDelete}
+				onCancel={() => setDeleteUser(null)}
+			/>
 
 			{/* Tabs */}
 			<div className="flex items-center gap-8 border-b border-slate-200">
@@ -280,7 +338,7 @@ export default function UsersClient({ users, classes = [] }: { users: UserWithPr
 			</div>
 
 			<DataTable
-				columns={columnsByRole[activeTab]}
+				columns={columns}
 				data={filteredData}
 				searchKey="name"
 				placeholder={`Search ${activeTab.toLowerCase()}s...`}

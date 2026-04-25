@@ -29,3 +29,12 @@ export async function getUsersWithProfiles(): Promise<UserWithProfile[]> {
     orderBy: { createdAt: "desc" },
   }) as Promise<UserWithProfile[]>
 }
+export async function getLecturers() {
+  return prisma.lecturerProfile.findMany({
+    include: {
+      user: {
+        select: { name: true, email: true }
+      }
+    }
+  })
+}

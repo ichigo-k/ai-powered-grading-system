@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logAction } from "@/lib/audit";
 
 export async function POST(req: Request) {
   try {
@@ -29,6 +30,12 @@ export async function POST(req: Request) {
         level: Number(level),
       },
     });
+
+    await logAction(
+      "CLASS_CREATED",
+      `New class "${newClass.name}" (Level ${newClass.level}) was created`,
+      "CLASS"
+    );
 
     return NextResponse.json(newClass, { status: 201 });
   } catch (error) {

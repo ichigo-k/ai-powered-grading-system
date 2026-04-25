@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { logAction } from "@/lib/audit";
 import ExcelJS from "exceljs";
 
 type RowError = { row: number; field: string; message: string };
@@ -150,6 +151,14 @@ export async function POST(request: NextRequest) {
         errors.push({ row: rowNum, field: "unknown", message: "Unexpected error creating user" });
       }
     }
+  }
+
+  if (created > 0) {
+    await logAction(
+      "USER_BULK_IMPORT",
+      `Bulk import completed: ${created} ${role.toLowerCase()}s created successfully`,
+      "USER"
+    );
   }
 
   if (errors.length === 0) {

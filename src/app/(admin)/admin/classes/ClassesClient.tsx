@@ -37,62 +37,7 @@ import AddEditClassSheet from "./AddEditClassSheet";
 import ManageCoursesSheet from "./ManageCoursesSheet";
 import ClassMembersSheet from "./ClassMembersSheet";
 
-function ConfirmModal({ 
-	open, 
-	title, 
-	description, 
-	confirmText, 
-	cancelText = "Cancel",
-	isDestructive = false, 
-	isLoading = false,
-	onConfirm, 
-	onCancel 
-}: { 
-	open: boolean;
-	title: string;
-	description: string;
-	confirmText: string;
-	cancelText?: string;
-	isDestructive?: boolean;
-	isLoading?: boolean;
-	onConfirm: () => void;
-	onCancel: () => void;
-}) {
-	if (!open) return null;
-	
-	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm transition-all duration-200">
-			<div className="bg-white w-full max-w-md rounded-xl shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-				<div className="p-6">
-					<h3 className="text-lg font-bold text-slate-900">{title}</h3>
-					<p className="mt-2 text-sm text-slate-500">{description}</p>
-				</div>
-				<div className="bg-slate-50 px-6 py-4 flex items-center justify-end gap-3 border-t border-slate-100">
-					<Button 
-						variant="outline" 
-						onClick={onCancel} 
-						disabled={isLoading}
-						className="h-10 rounded-lg"
-					>
-						{cancelText}
-					</Button>
-					<Button 
-						onClick={onConfirm} 
-						disabled={isLoading}
-						className={`h-10 rounded-lg flex items-center gap-2 ${
-							isDestructive 
-								? 'bg-red-600 hover:bg-red-700 text-white' 
-								: 'bg-[#002388] hover:bg-[#0B4DBB] text-white'
-						}`}
-					>
-						{isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-						{confirmText}
-					</Button>
-				</div>
-			</div>
-		</div>
-	);
-}
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 export default function ClassesClient({
 	initialClasses,
@@ -269,14 +214,14 @@ export default function ClassesClient({
 				<button
 					onClick={() => setUpgradeConfirmOpen(true)}
 					disabled={isUpgrading}
-					className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50"
+					className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-normal text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50"
 				>
 					<ArrowUpCircle size={18} className="text-slate-400" />
 					Bulk Upgrade Levels
 				</button>
 				<button
 					onClick={() => { setEditingClass(null); setAddEditOpen(true); }}
-					className="flex items-center gap-2 rounded-xl bg-[#002388] px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-[#0B4DBB]"
+					className="flex items-center gap-2 rounded-xl bg-[#002388] px-5 py-2.5 text-sm font-normal text-white transition-all hover:bg-[#0B4DBB]"
 				>
 					<FolderPlus size={18} />
 					Create Class

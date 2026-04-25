@@ -4,6 +4,7 @@ import bcrypt from "bcrypt"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
+import { logAction } from "@/lib/audit"
 
 const VALID_ROLES = ["ADMIN", "LECTURER", "STUDENT"] as const
 type ValidRole = (typeof VALID_ROLES)[number]
@@ -113,7 +114,14 @@ export async function POST(request: NextRequest) {
       return created
     })
 
-    // 7. Return 201 — never include passwordHash (3.4)
+    // Log the action
+    await logAction(
+        "USER_CREATED",
+        `New ${validRole.toLowerCase()} account created for ${name}`,
+        "USER"
+    )
+
+    // 7. Return 201
     return NextResponse.json(
       {
         id: user.id,

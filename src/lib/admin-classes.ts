@@ -12,11 +12,13 @@ export type ClassWithDetails = {
   }
 }
 
-export type CourseDetails = {
+export type CourseWithDetails = {
   id: number
   code: string
   title: string
   credits: number
+  classes: { id: number, name: string, level: number }[]
+  lecturers: { id: number, user: { name: string | null } }[]
 }
 
 export async function getClasses(): Promise<ClassWithDetails[]> {
@@ -40,4 +42,23 @@ export async function getCourses(): Promise<CourseDetails[]> {
   return prisma.course.findMany({
     orderBy: { code: "asc" }
   })
+}
+
+export async function getCoursesWithDetails(): Promise<CourseWithDetails[]> {
+  return prisma.course.findMany({
+    include: {
+      classes: {
+        select: { id: true, name: true, level: true }
+      },
+      lecturers: {
+        select: {
+          id: true,
+          user: {
+            select: { name: true }
+          }
+        }
+      }
+    },
+    orderBy: { code: "asc" }
+  }) as unknown as Promise<CourseWithDetails[]>
 }
