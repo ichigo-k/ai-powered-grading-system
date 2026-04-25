@@ -23,7 +23,7 @@ import LiveBanner from "./LiveBanner";
 
 export default async function StudentDashboardPage() {
 	const session = await getSession();
-	const displayName = session?.user?.name ?? session?.user?.userId ?? "Student";
+	const displayName = session?.user?.name ?? session?.user?.email?.split("@")[0] ?? "Student";
 
 	const upcoming = studentAssessments.filter(
 		(assessment) => assessment.status === "upcoming",

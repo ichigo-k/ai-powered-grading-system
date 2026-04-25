@@ -6,7 +6,7 @@ export default async function ProfilePage() {
   const user = session?.user
 
   const academicInfo = [
-    { label: "Student ID", value: user?.userId ?? "—" },
+    { label: "Student ID", value: user?.email?.split("@")[0] ?? "—" },
     { label: "Full Name", value: user?.name ?? "—" },
     { label: "Programme", value: "BSc. Computer Science" },
     { label: "Level", value: "300" },
