@@ -41,6 +41,7 @@ model StudentProfile {
   user    User   @relation(fields: [id], references: [id])
   program String
   classId Int?
+  class   Class? @relation(fields: [classId], references: [id])
 
   @@map("student_profiles")
 }
@@ -50,6 +51,7 @@ model LecturerProfile {
   user       User   @relation(fields: [id], references: [id])
   department String
   title      String
+  courses    Course[] @relation("LecturerCourses")
 
   @@map("lecturer_profiles")
 }
@@ -59,4 +61,33 @@ model AdminProfile {
   user User @relation(fields: [id], references: [id])
 
   @@map("admin_profiles")
+}
+
+model Class {
+  id          Int      @id @default(autoincrement())
+  name        String   // e.g., "BIT Group B"
+  level       Int      // e.g., 100
+  isGraduated Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  students StudentProfile[]
+  courses  Course[]         @relation("ClassCourses")
+
+  @@unique([name, level])
+  @@map("classes")
+}
+
+model Course {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  title       String
+  credits     Int      @default(3)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  classes   Class[]           @relation("ClassCourses")
+  lecturers LecturerProfile[] @relation("LecturerCourses")
+
+  @@map("courses")
 }
