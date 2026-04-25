@@ -32,58 +32,23 @@ type ImportResult = {
 	errors: RowError[];
 };
 
-type Step = "upload" | "preview" | "result";
-
-/** Minimal CSV parser — handles quoted fields */
-function parseCsv(text: string): Record<string, string>[] {
-	const lines = text.trim().split(/\r?\n/);
-	if (lines.length < 2) return [];
-	const headers = splitCsvLine(lines[0]);
-	return lines.slice(1).map((line) => {
-		const values = splitCsvLine(line);
-		const row: Record<string, string> = {};
-		headers.forEach((h, i) => {
-			row[h.trim()] = (values[i] ?? "").trim();
-		});
-		return row;
-	});
-}
-
-function splitCsvLine(line: string): string[] {
-	const result: string[] = [];
-	let current = "";
-	let inQuotes = false;
-	for (let i = 0; i < line.length; i++) {
-		const ch = line[i];
-		if (ch === '"') {
-			inQuotes = !inQuotes;
-		} else if (ch === "," && !inQuotes) {
-			result.push(current);
-			current = "";
-		} else {
-			current += ch;
-		}
-	}
-	result.push(current);
-	return result;
-}
+type Step = "upload" | "ready" | "result";
 
 export default function BulkImportSheet({
 	open,
 	onOpenChange,
+	classes = [],
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	classes?: any[];
 }) {
 	const router = useRouter();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [role, setRole] = useState<Role>("STUDENT");
 	const [step, setStep] = useState<Step>("upload");
 	const [fileError, setFileError] = useState<string | null>(null);
-	const [fileName, setFileName] = useState<string | null>(null);
-	const [allRows, setAllRows] = useState<Record<string, string>[]>([]);
-	const [previewRows, setPreviewRows] = useState<Record<string, string>[]>([]);
-	const [previewHeaders, setPreviewHeaders] = useState<string[]>([]);
+	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [importing, setImporting] = useState(false);
 	const [result, setResult] = useState<ImportResult | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
@@ -91,10 +56,7 @@ export default function BulkImportSheet({
 	function reset() {
 		setStep("upload");
 		setFileError(null);
-		setFileName(null);
-		setAllRows([]);
-		setPreviewRows([]);
-		setPreviewHeaders([]);
+		setSelectedFile(null);
 		setResult(null);
 		setImporting(false);
 		if (fileInputRef.current) fileInputRef.current.value = "";
@@ -105,29 +67,14 @@ export default function BulkImportSheet({
 		onOpenChange(val);
 	}
 
-	// 8.2 — validate CSV file
 	function processFile(file: File) {
 		setFileError(null);
-		if (!file.name.endsWith(".csv") && file.type !== "text/csv") {
-			setFileError("Only .csv files are accepted. Please select a valid CSV file.");
+		if (!file.name.endsWith(".xlsx")) {
+			setFileError("Only Excel (.xlsx) files are accepted. Please download and use the provided template.");
 			return;
 		}
-		setFileName(file.name);
-		const reader = new FileReader();
-		reader.onload = (e) => {
-			const text = e.target?.result as string;
-			const rows = parseCsv(text);
-			if (rows.length === 0) {
-				setFileError("The CSV file contains no data rows.");
-				return;
-			}
-			setAllRows(rows);
-			// 8.3 — preview first 5 rows
-			setPreviewRows(rows.slice(0, 5));
-			setPreviewHeaders(Object.keys(rows[0]));
-			setStep("preview");
-		};
-		reader.readAsText(file);
+		setSelectedFile(file);
+		setStep("ready");
 	}
 
 	function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -142,21 +89,30 @@ export default function BulkImportSheet({
 		if (file) processFile(file);
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-	// 8.4 — download template for currently selected role
 	function handleDownloadTemplate() {
 		window.open(`/api/admin/users/template?role=${role}`, "_blank");
 	}
 
-	// 8.5 — confirm upload
 	async function handleConfirm() {
+		if (!selectedFile) return;
 		setImporting(true);
 		try {
+			const formData = new FormData();
+			formData.append("role", role);
+			formData.append("file", selectedFile);
+
 			const res = await fetch("/api/admin/users/bulk", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ role, rows: allRows }),
+				body: formData,
 			});
-			const json: ImportResult = await res.json();
+			const json = await res.json();
+			
+			if (res.status === 400 && json.error) {
+				toast.error(json.error);
+				setImporting(false);
+				return;
+			}
+
 			setResult(json);
 			setStep("result");
 			if (json.failed === 0) {
@@ -181,11 +137,11 @@ export default function BulkImportSheet({
 				<SheetHeader>
 					<SheetTitle>Bulk Import Users</SheetTitle>
 					<SheetDescription>
-						Upload a CSV file to create multiple users at once.
+						Upload an Excel file to create multiple users at once. Download the template for the correct format.
 					</SheetDescription>
 				</SheetHeader>
 
-				<div className="flex flex-col gap-5 px-4 pb-4">
+				<div className="flex flex-col gap-5 px-4 pb-4 mt-6">
 					{/* Role selector — always visible */}
 					<div className="flex flex-col gap-1.5">
 						<Label>Role</Label>
@@ -207,7 +163,7 @@ export default function BulkImportSheet({
 						</Select>
 					</div>
 
-					{/* 8.4 — Download template link */}
+					{/* Download template link */}
 					<button
 						type="button"
 						onClick={handleDownloadTemplate}
@@ -220,7 +176,6 @@ export default function BulkImportSheet({
 					{/* Step: upload */}
 					{step === "upload" && (
 						<>
-							{/* Drop zone */}
 							<div
 								onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
 								onDragLeave={() => setIsDragging(false)}
@@ -235,20 +190,19 @@ export default function BulkImportSheet({
 								<Upload size={28} className="text-slate-400" />
 								<div className="text-center">
 									<p className="text-sm font-semibold text-slate-700">
-										Drop your CSV here or click to browse
+										Drop your Excel (.xlsx) file here or click to browse
 									</p>
-									<p className="text-xs text-slate-400 mt-1">Only .csv files accepted</p>
+									<p className="text-xs text-slate-400 mt-1">Only .xlsx files accepted</p>
 								</div>
 								<input
 									ref={fileInputRef}
 									type="file"
-									accept=".csv,text/csv"
+									accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 									className="hidden"
 									onChange={handleFileChange}
 								/>
 							</div>
 
-							{/* 8.2 — inline file error */}
 							{fileError && (
 								<div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5">
 									<AlertCircle size={15} className="text-red-500 mt-0.5 shrink-0" />
@@ -258,66 +212,25 @@ export default function BulkImportSheet({
 						</>
 					)}
 
-					{/* Step: preview */}
-					{step === "preview" && (
+					{/* Step: ready */}
+					{step === "ready" && selectedFile && (
 						<>
-							{/* File info */}
-							<div className="flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
-								<FileText size={16} className="text-[#002388] shrink-0" />
-								<span className="text-sm font-medium text-slate-700 truncate flex-1">{fileName}</span>
-								<span className="text-xs text-slate-400">{allRows.length} row{allRows.length !== 1 ? "s" : ""}</span>
+							<div className="flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-4 mt-2">
+								<FileText size={20} className="text-[#002388] shrink-0" />
+								<div className="flex flex-col flex-1 min-w-0">
+									<span className="text-sm font-semibold text-slate-700 truncate">{selectedFile.name}</span>
+									<span className="text-xs text-slate-400">{(selectedFile.size / 1024).toFixed(1)} KB</span>
+								</div>
 								<button
 									type="button"
 									onClick={reset}
-									className="text-slate-400 hover:text-slate-600 transition-colors"
+									className="p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 rounded-md transition-colors"
 								>
-									<X size={15} />
+									<X size={16} />
 								</button>
 							</div>
-
-							{/* 8.3 — preview table */}
-							<div>
-								<p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-									Preview (first {previewRows.length} row{previewRows.length !== 1 ? "s" : ""})
-								</p>
-								<div className="overflow-x-auto rounded-xl border border-slate-200">
-									<table className="w-full text-xs">
-										<thead>
-											<tr className="bg-slate-50 border-b border-slate-200">
-												{previewHeaders.map((h) => (
-													<th
-														key={h}
-														className="px-3 py-2 text-left font-semibold text-slate-600 whitespace-nowrap"
-													>
-														{h}
-													</th>
-												))}
-											</tr>
-										</thead>
-										<tbody>
-											{previewRows.map((row, i) => (
-												<tr
-													key={i}
-													className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
-												>
-													{previewHeaders.map((h) => (
-														<td
-															key={h}
-															className="px-3 py-2 text-slate-700 max-w-[120px] truncate"
-														>
-															{row[h] || <span className="text-slate-300">—</span>}
-														</td>
-													))}
-												</tr>
-											))}
-										</tbody>
-									</table>
-								</div>
-								{allRows.length > 5 && (
-									<p className="text-xs text-slate-400 mt-1.5">
-										+{allRows.length - 5} more row{allRows.length - 5 !== 1 ? "s" : ""} not shown
-									</p>
-								)}
+							<div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-800">
+								Click the import button below to process this file. Our system will validate each row and create the users.
 							</div>
 						</>
 					)}
@@ -325,7 +238,6 @@ export default function BulkImportSheet({
 					{/* Step: result */}
 					{step === "result" && result && (
 						<div className="flex flex-col gap-3">
-							{/* Summary */}
 							<div className="grid grid-cols-2 gap-3">
 								<div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-center">
 									<p className="text-2xl font-bold text-emerald-600">{result.created}</p>
@@ -337,7 +249,6 @@ export default function BulkImportSheet({
 								</div>
 							</div>
 
-							{/* All-success message */}
 							{result.failed === 0 && (
 								<div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2.5">
 									<CheckCircle2 size={15} className="text-emerald-500 shrink-0" />
@@ -345,7 +256,6 @@ export default function BulkImportSheet({
 								</div>
 							)}
 
-							{/* Row-level errors */}
 							{result.errors.length > 0 && (
 								<div className="flex flex-col gap-1.5">
 									<p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Row Errors</p>
@@ -364,21 +274,21 @@ export default function BulkImportSheet({
 					)}
 				</div>
 
-				<SheetFooter className="px-4 pb-4 flex flex-col gap-2">
-					{step === "preview" && (
+				<SheetFooter className="px-4 pb-4 flex flex-col gap-2 border-t border-slate-100 pt-4 mt-auto">
+					{step === "ready" && (
 						<Button
 							onClick={handleConfirm}
 							disabled={importing}
-							className="w-full bg-[#002388] hover:bg-[#0B4DBB] text-white rounded-xl h-9"
+							className="w-full bg-[#002388] hover:bg-[#0B4DBB] text-white rounded-xl h-10 shadow-sm"
 						>
-							{importing ? "Importing…" : `Import ${allRows.length} User${allRows.length !== 1 ? "s" : ""}`}
+							{importing ? "Importing…" : "Import Users"}
 						</Button>
 					)}
 					{step === "result" && (
 						<Button
 							variant="outline"
 							onClick={reset}
-							className="w-full rounded-xl h-9"
+							className="w-full rounded-xl h-10 border-slate-200"
 						>
 							Import Another File
 						</Button>
@@ -387,7 +297,7 @@ export default function BulkImportSheet({
 						<Button
 							variant="outline"
 							onClick={() => handleClose(false)}
-							className="w-full rounded-xl h-9"
+							className="w-full rounded-xl h-10 border-slate-200"
 						>
 							Cancel
 						</Button>
