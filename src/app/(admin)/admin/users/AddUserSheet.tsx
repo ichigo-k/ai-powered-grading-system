@@ -76,9 +76,11 @@ function SubmitButton() {
 export default function AddUserSheet({
 	open,
 	onOpenChange,
+	classes = [],
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	classes?: any[];
 }) {
 	const router = useRouter();
 	const [role, setRole] = useState<Role>("STUDENT");
@@ -110,7 +112,7 @@ export default function AddUserSheet({
 		};
 		if (currentRole === "STUDENT") {
 			body.program = data.program;
-			if (data.classId?.trim()) body.classId = data.classId;
+			if (data.classId?.trim()) body.classId = Number(data.classId);
 		} else if (currentRole === "LECTURER") {
 			body.department = data.department;
 			body.title = data.title;
@@ -238,12 +240,22 @@ export default function AddUserSheet({
 								<Label htmlFor="classId" className="text-slate-700 font-medium">
 									Class <span className="text-slate-400 font-normal">(optional)</span>
 								</Label>
-								<Input 
-									id="classId" 
-									name="classId" 
-									placeholder="e.g. CS-A" 
-									className="rounded-lg h-10 border-slate-200 focus-visible:ring-[#002388]" 
-								/>
+								<Select name="classId">
+									<SelectTrigger id="classId" className="w-full rounded-lg h-10 border-slate-200 focus-visible:ring-[#002388]">
+										<SelectValue placeholder="Select class" />
+									</SelectTrigger>
+									<SelectContent>
+										{classes.length === 0 ? (
+											<div className="p-2 text-sm text-slate-500">No classes found</div>
+										) : (
+											classes.map((c) => (
+												<SelectItem key={c.id} value={c.id.toString()}>
+													{c.name} - Level {c.level}
+												</SelectItem>
+											))
+										)}
+									</SelectContent>
+								</Select>
 							</div>
 						</>
 					)}

@@ -204,7 +204,7 @@ const columnsByRole: Record<UserRole, ColumnDef<UserWithProfile>[]> = {
 	ADMIN: adminColumns,
 };
 
-export default function UsersClient({ users }: { users: UserWithProfile[] }) {
+export default function UsersClient({ users, classes = [] }: { users: UserWithProfile[]; classes?: any[] }) {
 	const [activeTab, setActiveTab] = useState<UserRole>("STUDENT");
 	const [addUserOpen, setAddUserOpen] = useState(false);
 	const [bulkImportOpen, setBulkImportOpen] = useState(false);
@@ -242,8 +242,8 @@ export default function UsersClient({ users }: { users: UserWithProfile[] }) {
 				</button>
 			</div>
 
-			<AddUserSheet open={addUserOpen} onOpenChange={setAddUserOpen} />
-			<BulkImportSheet open={bulkImportOpen} onOpenChange={setBulkImportOpen} />
+			<AddUserSheet open={addUserOpen} onOpenChange={setAddUserOpen} classes={classes} />
+			<BulkImportSheet open={bulkImportOpen} onOpenChange={setBulkImportOpen} classes={classes} />
 
 			{/* Tabs */}
 			<div className="flex items-center gap-8 border-b border-slate-200">

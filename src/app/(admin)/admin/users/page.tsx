@@ -1,9 +1,11 @@
 import { getUsersWithProfiles } from "@/lib/admin-users";
+import { getClasses } from "@/lib/admin-classes";
 import UsersClient from "./UsersClient";
 import { Users as UsersIcon } from "lucide-react";
 
 export default async function AdminUsersPage() {
 	const users = await getUsersWithProfiles();
+	const classes = await getClasses();
 
 	return (
 		<div className="mx-auto max-w-6xl space-y-8 pb-8">
@@ -19,7 +21,7 @@ export default async function AdminUsersPage() {
 				</div>
 			</header>
 
-			<UsersClient users={users} />
+			<UsersClient users={users} classes={classes} />
 		</div>
 	);
 }
