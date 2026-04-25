@@ -91,3 +91,23 @@ model Course {
 
   @@map("courses")
 }
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  action    String   // e.g., "USER_CREATED", "CLASS_ASSIGNED"
+  details   String   // e.g., "New student profile created for Kwame Asante"
+  category  String   // e.g., "USER", "CLASS", "COURSE", "SYSTEM"
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model SystemSettings {
+  id              Int      @id @default(1)
+  academicYear    String   @default("2023/2024")
+  semester        String   @default("First Semester")
+  contactEmail    String   @default("admin@system.edu")
+  updatedAt       DateTime @updatedAt
+
+  @@map("system_settings")
+}
