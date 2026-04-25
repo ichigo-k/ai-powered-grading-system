@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  // 2. Parse + validate body
+  // 2. Parse body
   let body: unknown
   try {
     body = await request.json()
@@ -23,10 +23,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
-  const { userId, name, role, password } = body as Record<string, unknown>
+  const {
+    email,
+    name,
+    role,
+    // Student fields
+    program,
+    classId,
+    // Lecturer fields
+    department,
+    title,
+  } = body as Record<string, unknown>
 
-  if (!userId || typeof userId !== "string") {
-    return NextResponse.json({ error: "userId is required" }, { status: 400 })
+  // 3. Validate common required fields
+  if (!email || typeof email !== "string") {
+    return NextResponse.json({ error: "email is required" }, { status: 400 })
   }
   if (!name || typeof name !== "string") {
     return NextResponse.json({ error: "name is required" }, { status: 400 })
@@ -37,43 +48,96 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     )
   }
-  if (!password || typeof password !== "string") {
-    return NextResponse.json({ error: "password is required" }, { status: 400 })
+
+  // Password defaults to the email local part (before @)
+  const emailStr = email as string
+  const password = emailStr.includes("@") ? emailStr.split("@")[0] : emailStr
+
+  // 4. Validate role-specific required fields
+  const validRole = role as ValidRole
+
+  if (validRole === "STUDENT") {
+    if (!program || typeof program !== "string") {
+      return NextResponse.json({ error: "program is required" }, { status: 400 })
+    }
   }
 
-  // 3. Hash password
-  const passwordHash = await bcrypt.hash(password, 12)
+  if (validRole === "LECTURER") {
+    if (!department || typeof department !== "string") {
+      return NextResponse.json({ error: "department is required" }, { status: 400 })
+    }
+    if (!title || typeof title !== "string") {
+      return NextResponse.json({ error: "title is required" }, { status: 400 })
+    }
+  }
 
-  // 4. Create user
+  // ADMIN needs no extra fields
+
+  // 5. Hash password (cost factor 12)
+  const passwordHash = await bcrypt.hash(password as string, 12)
+
+  // 6. Create User + role-specific profile in a single transaction (3.2)
   try {
-    const user = await prisma.user.create({
-      data: {
-        userId,
-        name,
-        role: role as ValidRole,
-        passwordHash,
-      },
-      select: {
-        id: true,
-        userId: true,
-        name: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email: email as string,
+          name: name as string,
+          role: validRole,
+          passwordHash,
+        },
+      })
+
+      if (validRole === "STUDENT") {
+        await tx.studentProfile.create({
+          data: {
+            id: created.id,
+            program: program as string,
+            classId: typeof classId === "number" ? classId : null,
+          },
+        })
+      } else if (validRole === "LECTURER") {
+        await tx.lecturerProfile.create({
+          data: {
+            id: created.id,
+            department: department as string,
+            title: title as string,
+          },
+        })
+      } else if (validRole === "ADMIN") {
+        await tx.adminProfile.create({
+          data: { id: created.id },
+        })
+      }
+
+      return created
     })
 
-    return NextResponse.json(user, { status: 201 })
+    // 7. Return 201 — never include passwordHash (3.4)
+    return NextResponse.json(
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        status: user.status,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      { status: 201 }
+    )
   } catch (err) {
-    if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === "P2002"
-    ) {
-      return NextResponse.json(
-        { error: "A user with that userId already exists" },
-        { status: 409 }
-      )
+    // 8. Handle unique constraint violations (3.3)
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      const fields = (err.meta?.target as string[] | undefined) ?? []
+      if (fields.includes("email")) {
+        return NextResponse.json({ error: "email already exists" }, { status: 409 })
+      }
+      // Fallback for any other unique constraint
+      return NextResponse.json({ error: "A unique constraint was violated" }, { status: 409 })
     }
-    throw err
+
+    console.error("[POST /api/admin/users]", err)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
