@@ -3,6 +3,7 @@
 import { signIn, auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { AuthError } from "next-auth"
+import { logAction } from "@/lib/audit"
 
 const ROLE_DASHBOARDS = {
   ADMIN: "/admin",
@@ -31,6 +32,15 @@ export async function loginAction(_prevState: unknown, formData: FormData) {
 
   const session = await auth()
   const role = session?.user?.role
+  
+  if (session?.user) {
+    await logAction(
+      "USER_LOGIN",
+      `User ${session.user.name} (${session.user.role}) logged in`,
+      "SYSTEM"
+    );
+  }
+
   const redirectTo = role ? (ROLE_DASHBOARDS[role] ?? "/") : "/"
   redirect(redirectTo)
 }

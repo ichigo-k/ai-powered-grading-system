@@ -11,6 +11,7 @@ import {
 	User,
 	Users,
 	X,
+	Key,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -63,7 +64,7 @@ export default function AdminNavbar({ userName }: AdminNavbarProps) {
 						</div>
 					</Link>
 
-					<div className="hidden flex-1 items-center md:flex">
+					<div className="hidden flex-1 items-center lg:flex">
 						{navItems.map(({ label, href, Icon }) => {
 							const active = pathname === href || (href !== "/admin" && pathname.startsWith(href));
 							return (
@@ -87,13 +88,7 @@ export default function AdminNavbar({ userName }: AdminNavbarProps) {
 					</div>
 
 					<div className="ml-auto flex items-center gap-1">
-						<button
-							type="button"
-							className="relative rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
-						>
-							<Bell size={18} />
-							<span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500" />
-						</button>
+
 
 						<div className="relative ml-1">
 							<button
@@ -120,11 +115,11 @@ export default function AdminNavbar({ userName }: AdminNavbarProps) {
 										<p className="text-[11px] text-slate-400">Administrator</p>
 									</div>
 									<Link
-										href="/admin/settings"
+										href="/admin/change-password"
 										className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50"
 									>
-										<Settings size={14} />
-										Settings
+										<Key size={14} />
+										Change Password
 									</Link>
 									<div className="my-1 h-px bg-slate-100" />
 									<form action={signOutAction}>
@@ -142,7 +137,7 @@ export default function AdminNavbar({ userName }: AdminNavbarProps) {
 
 						<button
 							type="button"
-							className="ml-1 rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600 md:hidden"
+							className="ml-1 rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600 lg:hidden"
 							onClick={() => setMenuOpen(!menuOpen)}
 						>
 							{menuOpen ? <X size={18} /> : <Menu size={18} />}
@@ -153,7 +148,7 @@ export default function AdminNavbar({ userName }: AdminNavbarProps) {
 
 			{menuOpen ? (
 				<div
-					className="fixed inset-x-0 top-16 z-40 flex flex-col gap-1 bg-white px-4 py-3 md:hidden shadow-lg"
+					className="fixed inset-x-0 top-16 z-40 flex flex-col gap-1 bg-white px-4 py-3 lg:hidden shadow-lg"
 					style={{ borderBottom: "1px solid #E2E8F0" }}
 				>
 					{navItems.map(({ label, href, Icon }) => {
