@@ -4,6 +4,9 @@ import bcrypt from "bcrypt"
 import { prisma } from "@/lib/prisma"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  logger: {
+    error() {}, // suppress CredentialsSignin noise in the console
+  },
   providers: [
     Credentials({
       credentials: {
@@ -14,8 +17,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.userId || !credentials?.password) return null
 
+        // Accept either the local part (e.g. "4211230210") or a full email
+        const raw = credentials.userId as string
+        const email = raw.includes("@") ? raw : `${raw}@live.gctu.edu.gh`
+
         const user = await prisma.user.findUnique({
-          where: { userId: credentials.userId as string },
+          where: { email },
         })
 
         if (!user) return null
@@ -28,7 +35,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         return {
           id: String(user.id),
-          userId: user.userId,
+          email: user.email,
           role: user.role,
           name: user.name,
           keepLoggedIn: credentials.keepLoggedIn === "true",
@@ -42,14 +49,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         const u = user as any
-        token.userId = u.userId
+        token.email = u.email
         token.role = u.role
         token.maxAge = u.keepLoggedIn ? 30 * 24 * 60 * 60 : 8 * 60 * 60
       }
       return token
     },
     async session({ session, token }) {
-      session.user.userId = token.userId as string
+      session.user.email = token.email as string
       session.user.role = token.role as "ADMIN" | "LECTURER" | "STUDENT"
       return session
     },
