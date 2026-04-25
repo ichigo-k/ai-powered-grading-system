@@ -12,14 +12,51 @@ enum Role {
   STUDENT
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
 model User {
-  id           Int      @id @default(autoincrement())
-  userId       String   @unique
+  id           Int        @id @default(autoincrement())
+  email        String     @unique
   passwordHash String
   role         Role
   name         String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  status       UserStatus @default(ACTIVE)
+  dateJoined   DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  studentProfile  StudentProfile?
+  lecturerProfile LecturerProfile?
+  adminProfile    AdminProfile?
 
   @@map("users")
+}
+
+model StudentProfile {
+  id      Int    @id
+  user    User   @relation(fields: [id], references: [id])
+  program String
+  classId Int?
+
+  @@map("student_profiles")
+}
+
+model LecturerProfile {
+  id         Int    @id
+  user       User   @relation(fields: [id], references: [id])
+  department String
+  title      String
+
+  @@map("lecturer_profiles")
+}
+
+model AdminProfile {
+  id   Int  @id
+  user User @relation(fields: [id], references: [id])
+
+  @@map("admin_profiles")
 }
