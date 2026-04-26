@@ -1,0 +1,254 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { ColumnDef } from "@tanstack/react-table"
+import {
+  ArrowUpDown,
+  MoreVertical,
+  Eye,
+  Edit2,
+  Trash2,
+  CheckCircle,
+  XCircle,
+  Plus,
+} from "lucide-react"
+import { DataTable } from "@/components/ui/data-table"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import { ConfirmModal } from "@/components/ui/confirm-modal"
+import { toast } from "sonner"
+import { format } from "date-fns"
+import type { AssessmentListItem, AssessmentTypeEnum, AssessmentStatusEnum } from "@/lib/assessment-types"
+
+interface AssessmentsClientProps {
+  assessments: AssessmentListItem[]
+}
+
+const typeBadgeVariant: Record<AssessmentTypeEnum, string> = {
+  EXAM: "bg-red-50 text-red-700 border-red-200",
+  QUIZ: "bg-amber-50 text-amber-700 border-amber-200",
+  ASSIGNMENT: "bg-blue-50 text-blue-700 border-blue-200",
+}
+
+const statusBadgeVariant: Record<AssessmentStatusEnum, string> = {
+  DRAFT: "bg-slate-100 text-slate-600 border-slate-200",
+  PUBLISHED: "bg-green-50 text-green-700 border-green-200",
+  CLOSED: "bg-slate-200 text-slate-500 border-slate-300",
+}
+
+export default function AssessmentsClient({ assessments }: AssessmentsClientProps) {
+  const router = useRouter()
+  const [deleteTarget, setDeleteTarget] = useState<AssessmentListItem | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isTransitioning, setIsTransitioning] = useState<number | null>(null)
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/lecturer/assessments/${deleteTarget.id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error()
+      toast.success("Assessment deleted")
+      setDeleteTarget(null)
+      router.refresh()
+    } catch {
+      toast.error("Failed to delete assessment")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleStatusTransition = async (id: number, status: "PUBLISHED" | "CLOSED") => {
+    setIsTransitioning(id)
+    try {
+      const res = await fetch(`/api/lecturer/assessments/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Failed")
+      }
+      toast.success(status === "PUBLISHED" ? "Assessment published" : "Assessment closed")
+      router.refresh()
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update status")
+    } finally {
+      setIsTransitioning(null)
+    }
+  }
+
+  const columns: ColumnDef<AssessmentListItem>[] = [
+    {
+      accessorKey: "title",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="-ml-4 h-8 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:bg-transparent"
+        >
+          Title
+          <ArrowUpDown className="ml-2 h-3 w-3" />
+        </Button>
+      ),
+      cell: ({ row }) => (
+        <div className="min-w-0">
+          <p className="font-semibold text-slate-900 truncate">{row.getValue("title")}</p>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{row.original.courseCode}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "type",
+      header: "Type",
+      cell: ({ row }) => (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${typeBadgeVariant[row.original.type]}`}>
+          {row.original.type}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${statusBadgeVariant[row.original.status]}`}>
+          {row.original.status}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "classCount",
+      header: "Classes",
+      cell: ({ row }) => (
+        <span className="text-xs font-bold text-slate-700">{row.original.classCount}</span>
+      ),
+    },
+    {
+      accessorKey: "startsAt",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="-ml-4 h-8 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:bg-transparent"
+        >
+          Starts
+          <ArrowUpDown className="ml-2 h-3 w-3" />
+        </Button>
+      ),
+      cell: ({ row }) => (
+        <span className="text-xs text-slate-600">{format(new Date(row.original.startsAt), "MMM d, yyyy HH:mm")}</span>
+      ),
+    },
+    {
+      accessorKey: "endsAt",
+      header: "Ends",
+      cell: ({ row }) => (
+        <span className="text-xs text-slate-600">{format(new Date(row.original.endsAt), "MMM d, yyyy HH:mm")}</span>
+      ),
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => {
+        const a = row.original
+        const isLoading = isTransitioning === a.id
+        return (
+          <div className="flex items-center justify-end gap-1">
+            {a.status === "DRAFT" && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isLoading}
+                onClick={() => handleStatusTransition(a.id, "PUBLISHED")}
+                className="h-7 px-2 text-[10px] font-bold text-green-700 border-green-200 hover:bg-green-50 rounded-lg"
+              >
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Publish
+              </Button>
+            )}
+            {a.status === "PUBLISHED" && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isLoading}
+                onClick={() => handleStatusTransition(a.id, "CLOSED")}
+                className="h-7 px-2 text-[10px] font-bold text-slate-600 border-slate-200 hover:bg-slate-50 rounded-lg"
+              >
+                <XCircle className="h-3 w-3 mr-1" />
+                Close
+              </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">
+                  <MoreVertical size={16} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => router.push(`/lecturer/assessments/${a.id}`)}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push(`/lecturer/assessments/${a.id}/edit`)}>
+                  <Edit2 className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-rose-600 focus:text-rose-600 focus:bg-rose-50"
+                  onClick={() => setDeleteTarget(a)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )
+      },
+    },
+  ]
+
+  return (
+    <div className="space-y-8">
+      <div className="flex justify-end">
+        <Button
+          onClick={() => router.push("/lecturer/assessments/new")}
+          className="rounded-xl bg-[#002388] hover:bg-[#002388]/90 gap-1.5"
+        >
+          <Plus className="h-4 w-4" />
+          New Assessment
+        </Button>
+      </div>
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Delete Assessment?"
+        description={
+          deleteTarget?.status === "PUBLISHED"
+            ? `Warning: "${deleteTarget.title}" is currently published. Deleting it may affect students who have already started or submitted. This action cannot be undone.`
+            : `Are you sure you want to delete "${deleteTarget?.title}"? This action cannot be undone.`
+        }
+        confirmText="Delete Assessment"
+        isDestructive
+        isLoading={isDeleting}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      <DataTable
+        columns={columns}
+        data={assessments}
+        searchKey="title"
+        placeholder="Search assessments..."
+      />
+    </div>
+  )
+}

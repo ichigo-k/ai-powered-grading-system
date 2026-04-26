@@ -18,6 +18,29 @@ enum UserStatus {
   PENDING
 }
 
+enum AssessmentType {
+  EXAM
+  QUIZ
+  ASSIGNMENT
+}
+
+enum AssessmentStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum SectionType {
+  OBJECTIVE
+  SUBJECTIVE
+}
+
+enum AnswerType {
+  FILL_IN
+  PDF_UPLOAD
+  CODE
+}
+
 model User {
   id           Int        @id @default(autoincrement())
   email        String     @unique
@@ -53,6 +76,9 @@ model LecturerProfile {
   title      String
   courses    Course[] @relation("LecturerCourses")
 
+  assessments   Assessment[]
+  questionBanks QuestionBank[]
+
   @@map("lecturer_profiles")
 }
 
@@ -73,6 +99,7 @@ model Class {
 
   students StudentProfile[]
   courses  Course[]         @relation("ClassCourses")
+  assessmentClasses AssessmentClass[]
 
   @@unique([name, level])
   @@map("classes")
@@ -88,6 +115,9 @@ model Course {
 
   classes   Class[]           @relation("ClassCourses")
   lecturers LecturerProfile[] @relation("LecturerCourses")
+
+  assessments   Assessment[]
+  questionBanks QuestionBank[]
 
   @@map("courses")
 }
@@ -110,4 +140,131 @@ model SystemSettings {
   updatedAt       DateTime @updatedAt
 
   @@map("system_settings")
+}
+
+model Assessment {
+  id                Int              @id @default(autoincrement())
+  title             String
+  type              AssessmentType
+  status            AssessmentStatus @default(DRAFT)
+  courseId          Int
+  course            Course           @relation(fields: [courseId], references: [id])
+  lecturerId        Int
+  lecturer          LecturerProfile  @relation(fields: [lecturerId], references: [id])
+  totalMarks        Int
+  startsAt          DateTime
+  endsAt            DateTime
+  durationMinutes   Int?
+  maxAttempts       Int              @default(1)
+  passwordProtected Boolean          @default(false)
+  accessPassword    String?
+  shuffleQuestions  Boolean          @default(false)
+  shuffleOptions    Boolean          @default(false)
+  isLocationBound   Boolean          @default(false)
+  location          String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  classes   AssessmentClass[]
+  questions Question[]
+  sections  AssessmentSection[]
+
+  @@map("assessments")
+}
+
+model AssessmentSection {
+  id                     Int        @id @default(autoincrement())
+  assessmentId           Int
+  assessment             Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  name                   String
+  type                   SectionType
+  requiredQuestionsCount Int?
+
+  questions    Question[]
+
+  @@map("assessment_sections")
+}
+
+model AssessmentClass {
+  id           Int        @id @default(autoincrement())
+  assessmentId Int
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  classId      Int
+  class        Class      @relation(fields: [classId], references: [id])
+
+  @@unique([assessmentId, classId])
+  @@map("assessment_classes")
+}
+
+model Question {
+  id           Int         @id @default(autoincrement())
+  assessmentId Int
+  assessment   Assessment        @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  sectionId    Int
+  section      AssessmentSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  order        Int
+  body         String
+  marks        Int
+  answerType   AnswerType?
+  options      Json?
+  correctOption Int?
+  createdAt    DateTime    @default(now())
+
+  rubricCriteria RubricCriterion[]
+
+  @@map("questions")
+}
+
+model RubricCriterion {
+  id          Int      @id @default(autoincrement())
+  questionId  Int
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  description String
+  maxMarks    Int
+  order       Int
+
+  @@map("rubric_criteria")
+}
+
+model QuestionBank {
+  id         Int             @id @default(autoincrement())
+  lecturerId Int
+  lecturer   LecturerProfile @relation(fields: [lecturerId], references: [id])
+  courseId   Int?
+  course     Course?         @relation(fields: [courseId], references: [id])
+  title      String
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  items QuestionBankItem[]
+
+  @@map("question_banks")
+}
+
+model QuestionBankItem {
+  id            Int          @id @default(autoincrement())
+  bankId        Int
+  bank          QuestionBank @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  type          SectionType
+  body          String
+  marks         Int
+  answerType    AnswerType?
+  options       Json?
+  correctOption Int?
+  createdAt     DateTime     @default(now())
+
+  rubricCriteria QuestionBankItemRubric[]
+
+  @@map("question_bank_items")
+}
+
+model QuestionBankItemRubric {
+  id          Int              @id @default(autoincrement())
+  itemId      Int
+  item        QuestionBankItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  description String
+  maxMarks    Int
+  order       Int
+
+  @@map("question_bank_item_rubrics")
 }

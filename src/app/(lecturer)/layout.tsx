@@ -18,7 +18,7 @@ export default async function LecturerLayout({
       <LecturerNavbar
         userName={session.user.name}
       />
-      <main className="flex-1 p-8 min-h-screen">
+      <main className="flex-1 px-4 md:px-6 py-8 min-h-screen">
         {children}
       </main>
     </div>

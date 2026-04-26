@@ -1,16 +1,14 @@
 "use client";
 
 import {
-	Bell,
 	FileCheck,
 	FileText,
 	LayoutDashboard,
+	Library,
 	LogOut,
 	Menu,
-	PlusCircle,
 	User,
 	X,
-	Settings,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -25,8 +23,8 @@ interface LecturerNavbarProps {
 const navItems = [
 	{ label: "Dashboard", href: "/lecturer", Icon: LayoutDashboard },
 	{ label: "Assessments", href: "/lecturer/assessments", Icon: FileText },
+	{ label: "Question Bank", href: "/lecturer/question-bank", Icon: Library },
 	{ label: "Grade Book", href: "/lecturer/grades", Icon: FileCheck },
-	{ label: "Create Test", href: "/lecturer/tests/new", Icon: PlusCircle },
 ];
 
 export default function LecturerNavbar({ userName }: LecturerNavbarProps) {
@@ -85,53 +83,44 @@ export default function LecturerNavbar({ userName }: LecturerNavbarProps) {
 						})}
 					</div>
 
-					<div className="ml-auto flex items-center gap-2">
-						<button
-							type="button"
-							className="relative rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600 border border-transparent hover:border-slate-100"
-						>
-							<Bell size={18} />
-							<span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-white" />
-						</button>
+					<div className="ml-auto flex items-center gap-1">
 
 						<div className="relative ml-1">
 							<button
 								type="button"
 								onClick={() => setProfileOpen(!profileOpen)}
-								className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full border border-slate-100 hover:bg-slate-50 transition-all"
+								onBlur={() => setTimeout(() => setProfileOpen(false), 150)}
+								className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-50 hover:text-[#002388]"
 							>
-								<div className="hidden sm:block text-right mr-1">
-									<p className="text-xs font-bold text-slate-900 leading-none mb-0.5">{userName}</p>
-									<p className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter leading-none">Lecturer</p>
-								</div>
-								<div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-xs font-bold">
-									{userName?.split(' ').map(n => n[0]).join('')}
-								</div>
+								<User size={20} />
 							</button>
 
 							{profileOpen ? (
 								<div
-									className="absolute right-0 top-full mt-2 w-52 rounded-2xl bg-white p-2 shadow-xl animate-in fade-in zoom-in-95 duration-200"
+									className="absolute right-0 top-full mt-2 w-48 rounded-xl bg-white p-1.5 shadow-lg"
 									style={{ border: "1px solid #E2E8F0" }}
 								>
-									<div className="mb-2 px-3 py-2 border-b border-slate-50">
-										<p className="truncate text-xs font-bold text-slate-900">
+									<div className="mb-1 px-3 py-2">
+										<p
+											className="truncate text-xs font-semibold"
+											style={{ color: "#0A1628" }}
+										>
 											{userName}
 										</p>
-										<p className="text-[10px] text-slate-400 font-medium">Lecturer Account</p>
+										<p className="text-[11px] text-slate-400">Lecturer</p>
 									</div>
 									<Link
-										href="/lecturer/settings"
-										className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+										href="/lecturer/profile"
+										className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50"
 									>
-										<Settings size={14} />
-										Account Settings
+										<User size={14} />
+										Profile
 									</Link>
 									<div className="my-1 h-px bg-slate-100" />
 									<form action={signOutAction}>
 										<button
 											type="submit"
-											className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-bold text-red-500 transition-colors hover:bg-red-50"
+											className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-500 transition-colors hover:bg-red-50"
 										>
 											<LogOut size={14} />
 											Sign out
