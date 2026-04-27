@@ -65,6 +65,13 @@ export default function QuestionBuilderB({
     onChange({ ...question, rubricCriteria: updated })
   }
 
+  const questionMarks = parseInt(String(question.marks)) || 0
+  const rubricTotal = question.rubricCriteria.reduce(
+    (sum, c) => sum + (parseInt(String(c.maxMarks)) || 0),
+    0
+  )
+  const rubricOverLimit = questionMarks > 0 && rubricTotal > questionMarks
+
   return (
     <div className="group rounded-lg border border-slate-200 bg-white p-5 transition-colors hover:border-slate-300">
       {/* Header */}
@@ -198,7 +205,9 @@ export default function QuestionBuilderB({
                       value={criterion.maxMarks}
                       onChange={(e) => updateCriterion(criterion.id, "maxMarks", e.target.value)}
                       placeholder="0"
-                      className="h-8 w-16 border-slate-200 bg-white text-center text-sm font-medium focus-visible:ring-[#002388]/30"
+                      className={`h-8 w-16 text-center text-sm font-medium focus-visible:ring-[#002388]/30 ${
+                        rubricOverLimit ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"
+                      }`}
                     />
                     <button
                       type="button"
@@ -210,6 +219,21 @@ export default function QuestionBuilderB({
                   </div>
                 </div>
               ))}
+
+              {/* Rubric total */}
+              <div className={`flex items-center justify-end gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                rubricOverLimit
+                  ? "bg-red-50 text-red-600"
+                  : rubricTotal === questionMarks && questionMarks > 0
+                  ? "bg-green-50 text-green-600"
+                  : "bg-slate-50 text-slate-500"
+              }`}>
+                <span>Rubric total:</span>
+                <span>{rubricTotal} / {questionMarks || "?"}</span>
+                {rubricOverLimit && (
+                  <span className="text-red-500">— exceeds question marks by {rubricTotal - questionMarks}</span>
+                )}
+              </div>
             </div>
           )}
         </div>
