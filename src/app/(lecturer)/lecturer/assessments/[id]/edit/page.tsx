@@ -1,27 +1,68 @@
+import { Suspense } from "react"
 import { notFound, redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import AssessmentForm from "../../AssessmentForm"
+import { Skeleton } from "@/components/ui/skeleton"
 import type {
   LecturerCourse,
   Step1State,
   Step2State,
   Step3State,
   Step4State,
-  QuestionFormState,
   AnswerTypeEnum,
 } from "@/lib/assessment-types"
+
+// ─── Skeleton (reuse same shape as new page) ──────────────────────────────────
+
+function FormSkeleton() {
+  return (
+    <div className="mx-auto max-w-4xl w-full pb-16 space-y-10 animate-pulse">
+      <div className="space-y-2">
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-4 w-64" />
+      </div>
+      <div className="flex items-center gap-3">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="flex items-center gap-2 flex-1 last:flex-none">
+            <Skeleton className="h-7 w-7 rounded-full shrink-0" />
+            <Skeleton className="h-4 w-14" />
+            {i < 3 && <Skeleton className="h-px flex-1" />}
+          </div>
+        ))}
+      </div>
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
+        <Skeleton className="h-3 w-36" />
+        <div className="grid grid-cols-2 gap-5">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="space-y-1.5">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
+        <Skeleton className="h-3 w-40" />
+        <div className="grid grid-cols-3 gap-3">
+          {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function toDatetimeLocal(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0")
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export default async function EditAssessmentPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
+// ─── Data fetcher ─────────────────────────────────────────────────────────────
+
+async function EditAssessmentData({ id }: { id: string }) {
   const session = await auth()
   if (!session || session.user.role !== "LECTURER") redirect("/")
 
@@ -31,7 +72,6 @@ export default async function EditAssessmentPage({
   })
   if (!user) redirect("/")
 
-  const { id } = await params
   const assessmentId = Number(id)
   if (Number.isNaN(assessmentId)) notFound()
 
@@ -124,9 +164,7 @@ export default async function EditAssessmentPage({
     })),
   }
 
-  const initialStep4: Step4State = {
-    totalMarks: String(raw.totalMarks),
-  }
+  const initialStep4: Step4State = { totalMarks: String(raw.totalMarks) }
 
   return (
     <AssessmentForm
@@ -137,5 +175,20 @@ export default async function EditAssessmentPage({
       initialStep3={initialStep3}
       initialStep4={initialStep4}
     />
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default async function EditAssessmentPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  return (
+    <Suspense fallback={<FormSkeleton />}>
+      <EditAssessmentData id={id} />
+    </Suspense>
   )
 }
