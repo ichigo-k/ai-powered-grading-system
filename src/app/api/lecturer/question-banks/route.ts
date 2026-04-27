@@ -26,7 +26,26 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   })
 
-  return NextResponse.json(banks)
+  // Attach per-type counts
+  const bankIds = banks.map((b) => b.id)
+  const typeCounts = await prisma.questionBankItem.groupBy({
+    by: ["bankId", "type"],
+    where: { bankId: { in: bankIds } },
+    _count: { _all: true },
+  })
+
+  const countMap: Record<number, { OBJECTIVE: number; SUBJECTIVE: number }> = {}
+  for (const row of typeCounts) {
+    if (!countMap[row.bankId]) countMap[row.bankId] = { OBJECTIVE: 0, SUBJECTIVE: 0 }
+    countMap[row.bankId][row.type] = row._count._all
+  }
+
+  const result = banks.map((b) => ({
+    ...b,
+    typeCounts: countMap[b.id] ?? { OBJECTIVE: 0, SUBJECTIVE: 0 },
+  }))
+
+  return NextResponse.json(result)
 }
 
 export async function POST(request: NextRequest) {
