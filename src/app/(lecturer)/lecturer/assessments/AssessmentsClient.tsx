@@ -12,6 +12,7 @@ import {
   CheckCircle,
   XCircle,
   Plus,
+  BarChart2,
 } from "lucide-react"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
@@ -31,13 +32,13 @@ interface AssessmentsClientProps {
   assessments: AssessmentListItem[]
 }
 
-const typeBadgeVariant: Record<AssessmentTypeEnum, string> = {
+const typeBadge: Record<AssessmentTypeEnum, string> = {
   EXAM: "bg-red-50 text-red-700 border-red-200",
   QUIZ: "bg-amber-50 text-amber-700 border-amber-200",
   ASSIGNMENT: "bg-blue-50 text-blue-700 border-blue-200",
 }
 
-const statusBadgeVariant: Record<AssessmentStatusEnum, string> = {
+const statusBadge: Record<AssessmentStatusEnum, string> = {
   DRAFT: "bg-slate-100 text-slate-600 border-slate-200",
   PUBLISHED: "bg-green-50 text-green-700 border-green-200",
   CLOSED: "bg-slate-200 text-slate-500 border-slate-300",
@@ -93,7 +94,7 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="-ml-4 h-8 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:bg-transparent"
+          className="-ml-4 h-8 text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:bg-transparent"
         >
           Title
           <ArrowUpDown className="ml-2 h-3 w-3" />
@@ -101,8 +102,8 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
       ),
       cell: ({ row }) => (
         <div className="min-w-0">
-          <p className="font-semibold text-slate-900 truncate">{row.getValue("title")}</p>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{row.original.courseCode}</p>
+          <p className="font-medium text-slate-900 truncate">{row.getValue("title")}</p>
+          <p className="text-[10px] text-slate-400 uppercase tracking-tight mt-0.5">{row.original.courseCode}</p>
         </div>
       ),
     },
@@ -110,7 +111,7 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
       accessorKey: "type",
       header: "Type",
       cell: ({ row }) => (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${typeBadgeVariant[row.original.type]}`}>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${typeBadge[row.original.type]}`}>
           {row.original.type}
         </span>
       ),
@@ -119,7 +120,7 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${statusBadgeVariant[row.original.status]}`}>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${statusBadge[row.original.status]}`}>
           {row.original.status}
         </span>
       ),
@@ -128,7 +129,7 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
       accessorKey: "classCount",
       header: "Classes",
       cell: ({ row }) => (
-        <span className="text-xs font-bold text-slate-700">{row.original.classCount}</span>
+        <span className="text-sm text-slate-700">{row.original.classCount}</span>
       ),
     },
     {
@@ -137,7 +138,7 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="-ml-4 h-8 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:bg-transparent"
+          className="-ml-4 h-8 text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:bg-transparent"
         >
           Starts
           <ArrowUpDown className="ml-2 h-3 w-3" />
@@ -167,7 +168,7 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
                 variant="outline"
                 disabled={isLoading}
                 onClick={() => handleStatusTransition(a.id, "PUBLISHED")}
-                className="h-7 px-2 text-[10px] font-bold text-green-700 border-green-200 hover:bg-green-50 rounded-lg"
+                className="h-7 px-2 text-[10px] font-medium text-green-700 border-green-200 hover:bg-green-50 rounded-lg"
               >
                 <CheckCircle className="h-3 w-3 mr-1" />
                 Publish
@@ -179,7 +180,7 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
                 variant="outline"
                 disabled={isLoading}
                 onClick={() => handleStatusTransition(a.id, "CLOSED")}
-                className="h-7 px-2 text-[10px] font-bold text-slate-600 border-slate-200 hover:bg-slate-50 rounded-lg"
+                className="h-7 px-2 text-[10px] font-medium text-slate-600 border-slate-200 hover:bg-slate-50 rounded-lg"
               >
                 <XCircle className="h-3 w-3 mr-1" />
                 Close
@@ -188,17 +189,27 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">
-                  <MoreVertical size={16} />
+                  <MoreVertical size={15} />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuItem onClick={() => router.push(`/lecturer/assessments/${a.id}`)}>
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push(`/lecturer/assessments/${a.id}/edit`)}>
+                {(a.status === "PUBLISHED" || a.status === "CLOSED") && (
+                  <DropdownMenuItem onClick={() => router.push(`/lecturer/assessments/${a.id}/results`)}>
+                    <BarChart2 className="mr-2 h-4 w-4" />
+                    View Results
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
+                  onClick={() => router.push(`/lecturer/assessments/${a.id}/edit`)}
+                  disabled={a.status !== "DRAFT"}
+                  className={a.status !== "DRAFT" ? "opacity-40 cursor-not-allowed" : ""}
+                >
                   <Edit2 className="mr-2 h-4 w-4" />
-                  Edit
+                  Edit {a.status !== "DRAFT" && <span className="ml-auto text-[10px] text-slate-400">Draft only</span>}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -217,15 +228,15 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
   ]
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex justify-end">
-        <Button
+        <button
           onClick={() => router.push("/lecturer/assessments/new")}
-          className="rounded-xl bg-[#002388] hover:bg-[#002388]/90 gap-1.5"
+          className="flex items-center gap-2 rounded-xl bg-[#002388] px-4 py-2.5 text-sm text-white hover:bg-[#0B4DBB] transition-colors"
         >
-          <Plus className="h-4 w-4" />
+          <Plus size={16} />
           New Assessment
-        </Button>
+        </button>
       </div>
 
       <ConfirmModal
@@ -233,10 +244,10 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
         title="Delete Assessment?"
         description={
           deleteTarget?.status === "PUBLISHED"
-            ? `Warning: "${deleteTarget.title}" is currently published. Deleting it may affect students who have already started or submitted. This action cannot be undone.`
-            : `Are you sure you want to delete "${deleteTarget?.title}"? This action cannot be undone.`
+            ? `"${deleteTarget.title}" is currently published. Deleting it may affect students who have already started. This cannot be undone.`
+            : `Are you sure you want to delete "${deleteTarget?.title}"? This cannot be undone.`
         }
-        confirmText="Delete Assessment"
+        confirmText="Delete"
         isDestructive
         isLoading={isDeleting}
         onConfirm={handleDelete}
