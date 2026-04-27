@@ -55,7 +55,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   let body: {
-    section: string
+    type: string
     body: string
     marks: number
     answerType?: string | null
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
-  if (!body.section) return NextResponse.json({ error: "section is required" }, { status: 400 })
+  if (!body.type) return NextResponse.json({ error: "type is required" }, { status: 400 })
   if (!body.body?.trim()) return NextResponse.json({ error: "body is required" }, { status: 400 })
   if (!body.marks || body.marks < 1) return NextResponse.json({ error: "marks must be at least 1" }, { status: 400 })
 
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const created = await tx.questionBankItem.create({
       data: {
         bankId,
-        section: body.section as "SECTION_A" | "SECTION_B",
+        type: body.type as "OBJECTIVE" | "SUBJECTIVE",
         body: body.body,
         marks: body.marks,
         answerType: body.answerType as "FILL_IN" | "PDF_UPLOAD" | "CODE" | null ?? null,
