@@ -49,7 +49,6 @@ export default function Step3Questions({ state, onChange, errors, courseId }: St
     type: "",
   })
 
-  // SECTION ACTIONS
   const addSection = () => {
     onChange({ sections: [...state.sections, newSection()] })
   }
@@ -68,12 +67,9 @@ export default function Step3Questions({ state, onChange, errors, courseId }: St
   }
 
   const removeSection = (id: string) => {
-    onChange({
-      sections: state.sections.filter((s) => s.id !== id),
-    })
+    onChange({ sections: state.sections.filter((s) => s.id !== id) })
   }
 
-  // QUESTION ACTIONS
   const addQuestion = (sectionId: string) => {
     onChange({
       sections: state.sections.map((s) => {
@@ -88,10 +84,7 @@ export default function Step3Questions({ state, onChange, errors, courseId }: St
     onChange({
       sections: state.sections.map((s) => {
         if (s.id !== sectionId) return s
-        return {
-          ...s,
-          questions: s.questions.map((q) => (q.id === qId ? updated : q)),
-        }
+        return { ...s, questions: s.questions.map((q) => (q.id === qId ? updated : q)) }
       }),
     })
   }
@@ -102,8 +95,7 @@ export default function Step3Questions({ state, onChange, errors, courseId }: St
         if (s.id !== sectionId) return s
         const remaining = s.questions.filter((q) => q.id !== qId)
         let order = 1
-        const reordered = remaining.map((q) => ({ ...q, order: order++ }))
-        return { ...s, questions: reordered }
+        return { ...s, questions: remaining.map((q) => ({ ...q, order: order++ })) }
       }),
     })
   }
@@ -116,13 +108,11 @@ export default function Step3Questions({ state, onChange, errors, courseId }: St
         if (idx === -1) return s
         const swapIdx = direction === "up" ? idx - 1 : idx + 1
         if (swapIdx < 0 || swapIdx >= s.questions.length) return s
-
         const qs = [...s.questions]
         const tempOrder = qs[idx].order
         qs[idx].order = qs[swapIdx].order
         qs[swapIdx].order = tempOrder
         qs.sort((a, b) => a.order - b.order)
-
         return { ...s, questions: qs }
       }),
     })
@@ -142,116 +132,117 @@ export default function Step3Questions({ state, onChange, errors, courseId }: St
     setBankModal({ open: false, sectionId: null, type: "" })
   }
 
-  const openBankModal = (sectionId: string, type: string) => {
-    setBankModal({ open: true, sectionId, type })
-  }
-
   return (
-    <div className="space-y-16">
-      <div className="space-y-12">
-        {(state.sections || []).map((section, secIdx) => (
-          <div key={section.id} className="p-8 rounded-[32px] border border-slate-200 bg-white shadow-sm space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col md:flex-row gap-6 pb-6 border-b border-slate-100 justify-between md:items-center">
-              <div className="flex-1 space-y-4 w-full">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-[#002388] font-bold text-sm">
-                    {secIdx + 1}
-                  </div>
+    <div className="space-y-4">
+      {(state.sections || []).map((section, secIdx) => (
+        <div
+          key={section.id}
+          className="rounded-xl border border-slate-200 bg-white overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300"
+        >
+          {/* Section header */}
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#002388] text-white text-[11px] font-medium">
+              {secIdx + 1}
+            </div>
+            <Input
+              value={section.name}
+              onChange={(e) => updateSection(section.id, { name: e.target.value })}
+              placeholder="Section name (e.g. Section A — Multiple Choice)"
+              className="h-8 border-none bg-transparent focus-visible:ring-0 shadow-none font-medium text-slate-900 px-0 placeholder:text-slate-400"
+            />
+            <button
+              type="button"
+              onClick={() => removeSection(section.id)}
+              className="ml-auto p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all"
+            >
+              <Trash2 size={15} />
+            </button>
+          </div>
+
+          {/* Section config */}
+          <div className="px-5 py-4 border-b border-slate-100">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 space-y-1">
+                <Label className="text-[11px] text-slate-500 uppercase tracking-wider">Question Type</Label>
+                <Select
+                  value={section.type}
+                  onValueChange={(v: SectionTypeEnum) => updateSection(section.id, { type: v })}
+                >
+                  <SelectTrigger className="h-9 border-slate-200 bg-white text-sm focus:ring-[#002388]/30">
+                    <SelectValue placeholder="Select type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="OBJECTIVE">Objective (MCQ)</SelectItem>
+                    <SelectItem value="SUBJECTIVE">Subjective (Open Ended)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 space-y-1">
+                <Label className="text-[11px] text-slate-500 uppercase tracking-wider">Questions to Answer</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={section.requiredQuestionsCount}
+                  onChange={(e) => updateSection(section.id, { requiredQuestionsCount: e.target.value })}
+                  placeholder="Leave blank for all"
+                  className="h-9 border-slate-200 bg-white text-sm focus-visible:ring-[#002388]/30"
+                />
+              </div>
+
+              {section.requiredQuestionsCount && (
+                <div className="flex-1 space-y-1 animate-in fade-in duration-200">
+                  <Label className="text-[11px] text-slate-500 uppercase tracking-wider">Points per Question</Label>
                   <Input
-                    value={section.name}
-                    onChange={(e) => updateSection(section.id, { name: e.target.value })}
-                    placeholder="Section Name (e.g., Section A, Multiple Choice)"
-                    className="h-12 text-lg font-bold border-none bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:ring-1 ring-[#002388]/30 transition-all shadow-none"
+                    type="number"
+                    min={1}
+                    value={section.pointsPerQuestion}
+                    onChange={(e) => updateSection(section.id, { pointsPerQuestion: e.target.value })}
+                    placeholder="Marks"
+                    className="h-9 border-slate-200 bg-white text-sm focus-visible:ring-[#002388]/30"
                   />
                 </div>
-                
-                <div className="flex flex-col sm:flex-row gap-4 md:ml-14">
-                  <div className="flex-1 space-y-2">
-                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Question Type</Label>
-                    <Select
-                      value={section.type}
-                      onValueChange={(v: SectionTypeEnum) => updateSection(section.id, { type: v })}
-                    >
-                      <SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-none font-semibold text-sm hover:bg-slate-50 focus:bg-white focus:ring-1 ring-[#002388]/30 shadow-none">
-                        <SelectValue placeholder="Select type..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="OBJECTIVE" className="font-medium text-sm">Objective (MCQ)</SelectItem>
-                        <SelectItem value="SUBJECTIVE" className="font-medium text-sm">Subjective (Open Ended)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="flex-1 space-y-2">
-                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Questions to Answer</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={section.requiredQuestionsCount}
-                      onChange={(e) => updateSection(section.id, { requiredQuestionsCount: e.target.value })}
-                      placeholder="Leave blank for 'Answer All'"
-                      className="h-12 rounded-xl bg-slate-50/50 border-none font-medium text-sm hover:bg-slate-50 focus:bg-white focus:ring-1 ring-[#002388]/30 shadow-none"
-                    />
-                  </div>
-
-                  {section.requiredQuestionsCount && (
-                    <div className="flex-1 space-y-2 animate-in fade-in zoom-in-95 duration-300">
-                      <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Points per Question</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={section.pointsPerQuestion}
-                        onChange={(e) => updateSection(section.id, { pointsPerQuestion: e.target.value })}
-                        placeholder="Marks per question"
-                        className="h-12 rounded-xl bg-blue-50/50 border-none font-bold text-sm text-[#002388] hover:bg-blue-50 focus:bg-white focus:ring-1 ring-[#002388]/30 shadow-none"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => removeSection(section.id)}
-                className="h-12 w-12 p-0 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all shrink-0 mt-2 md:mt-0"
-              >
-                <Trash2 size={20} />
-              </Button>
+              )}
             </div>
+          </div>
 
+          {/* Questions area */}
+          <div className="px-5 py-4">
             {section.type ? (
-              <div className="space-y-6 md:ml-14">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <h4 className="text-sm font-bold text-slate-900 tracking-tight">Questions</h4>
-                  <div className="flex items-center gap-3">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-slate-500">
+                    {section.questions.length} question{section.questions.length !== 1 ? "s" : ""}
+                  </p>
+                  <div className="flex items-center gap-2">
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => openBankModal(section.id, section.type)}
-                      className="h-10 px-4 rounded-xl font-semibold text-[#002388] hover:bg-[#002388]/5 transition-all flex items-center gap-2"
+                      onClick={() => setBankModal({ open: true, sectionId: section.id, type: section.type })}
+                      className="h-8 px-3 text-xs text-[#002388] hover:bg-[#002388]/5"
                     >
-                      <Library size={16} />
-                      Import
+                      <Library size={13} className="mr-1.5" />
+                      Import from Bank
                     </Button>
                     <Button
                       type="button"
                       size="sm"
                       onClick={() => addQuestion(section.id)}
-                      className="h-10 px-4 rounded-xl bg-[#002388] hover:bg-[#0B4DBB] text-white font-semibold shadow-md shadow-blue-900/10 transition-all flex items-center gap-2"
+                      className="h-8 px-3 text-xs bg-[#002388] hover:bg-[#0B4DBB] text-white"
                     >
-                      <Plus size={16} />
+                      <Plus size={13} className="mr-1.5" />
                       Add Question
                     </Button>
                   </div>
                 </div>
 
                 {section.questions.length === 0 ? (
-                  <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50/50 px-6 py-10 text-center">
-                    <p className="text-sm font-medium text-slate-400 italic">No questions added to this section yet.</p>
+                  <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center">
+                    <p className="text-sm text-slate-400">No questions yet. Add one above.</p>
                   </div>
                 ) : (
-                  <div className="grid gap-6">
+                  <div className="space-y-3">
                     {section.questions.map((q, idx) =>
                       section.type === "OBJECTIVE" ? (
                         <QuestionBuilderA
@@ -283,23 +274,22 @@ export default function Step3Questions({ state, onChange, errors, courseId }: St
                 )}
               </div>
             ) : (
-              <div className="md:ml-14 rounded-[24px] border border-dashed border-slate-200 bg-slate-50/50 px-6 py-10 text-center">
-                <p className="text-sm font-medium text-slate-400 italic">Please select a Question Type above to start adding questions.</p>
+              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center">
+                <p className="text-sm text-slate-400">Select a question type above to start adding questions.</p>
               </div>
             )}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
 
-      <Button
+      <button
         type="button"
-        variant="outline"
         onClick={addSection}
-        className="w-full h-16 rounded-[24px] border-2 border-dashed border-[#002388]/20 bg-[#002388]/5 text-[#002388] font-bold uppercase tracking-widest hover:bg-[#002388]/10 hover:border-[#002388]/30 transition-all flex items-center justify-center gap-3 text-xs"
+        className="w-full flex items-center justify-center gap-2 h-12 rounded-xl border-2 border-dashed border-slate-200 text-slate-500 hover:border-[#002388]/30 hover:text-[#002388] hover:bg-[#002388]/5 transition-all text-sm"
       >
-        <Plus size={20} strokeWidth={3} />
-        Add New Section
-      </Button>
+        <Plus size={16} />
+        Add Section
+      </button>
 
       <ImportFromBankModal
         open={bankModal.open}

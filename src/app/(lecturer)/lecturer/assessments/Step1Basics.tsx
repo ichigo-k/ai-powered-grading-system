@@ -12,21 +12,6 @@ import {
 import type { Step1State, LecturerCourse } from "@/lib/assessment-types"
 import { CalendarClock, Clock } from "lucide-react"
 
-function formatDateTimeNice(value: string) {
-  if (!value) return null
-  const d = new Date(value)
-  if (isNaN(d.getTime())) return null
-  return d.toLocaleString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  })
-}
-
 function getWindowSummary(start: string, end: string): string | null {
   if (!start || !end) return null
   const s = new Date(start)
@@ -45,7 +30,7 @@ function getWindowSummary(start: string, end: string): string | null {
   } else if (diffHours < 24) {
     const h = Math.floor(diffHours)
     const m = diffMins % 60
-    duration = m > 0 ? `${h} hour${h !== 1 ? "s" : ""} and ${m} minute${m !== 1 ? "s" : ""}` : `${h} hour${h !== 1 ? "s" : ""}`
+    duration = m > 0 ? `${h}h ${m}m` : `${h} hour${h !== 1 ? "s" : ""}`
   } else if (diffDays < 14) {
     const d = Math.round(diffDays)
     duration = `${d} day${d !== 1 ? "s" : ""}`
@@ -64,24 +49,29 @@ interface Step1BasicsProps {
   errors: Partial<Record<keyof Step1State, string>>
 }
 
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.12em] mb-4">
+      {label}
+    </p>
+  )
+}
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null
+  return <p className="text-xs text-rose-500 mt-1">{message}</p>
+}
+
 export default function Step1Basics({ state, onChange, lecturerCourses, errors }: Step1BasicsProps) {
   return (
-    <div className="space-y-12">
-      <div className="space-y-6">
-        <div className="flex items-center gap-4 pb-3 border-b border-slate-50">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-50 text-[#002388]">
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-              <path d="M8 7h6" />
-              <path d="M8 11h8" />
-            </svg>
-          </div>
-          <h2 className="text-base font-semibold text-slate-900 tracking-tight">General Information</h2>
-        </div>
+    <div className="space-y-8">
+      {/* General Information */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
+        <SectionHeader label="General Information" />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-1.5">
-            <Label htmlFor="title" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">
+            <Label htmlFor="title" className="text-xs text-slate-600">
               Assessment Title <span className="text-rose-500">*</span>
             </Label>
             <Input
@@ -89,17 +79,17 @@ export default function Step1Basics({ state, onChange, lecturerCourses, errors }
               value={state.title}
               onChange={(e) => onChange({ title: e.target.value })}
               placeholder="e.g. Midterm Examination"
-              className="h-11 rounded-md border-slate-200 bg-white hover:bg-slate-50 focus:bg-white focus:ring-[#002388] transition-all font-medium"
+              className="h-10 border-slate-200 bg-white focus-visible:ring-[#002388]/30"
             />
-            {errors.title && <p className="text-[10px] font-semibold text-rose-500 ml-1 italic">{errors.title}</p>}
+            <FieldError message={errors.title} />
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">
+            <Label className="text-xs text-slate-600">
               Assigned Course <span className="text-rose-500">*</span>
             </Label>
             {lecturerCourses.length === 0 ? (
-              <p className="text-xs font-medium text-slate-400 bg-slate-50 rounded-md px-4 h-11 flex items-center border border-slate-200 italic">
+              <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 h-10 flex items-center border border-slate-200">
                 No courses assigned
               </p>
             ) : (
@@ -107,138 +97,114 @@ export default function Step1Basics({ state, onChange, lecturerCourses, errors }
                 value={state.courseId ? String(state.courseId) : ""}
                 onValueChange={(v) => onChange({ courseId: parseInt(v) })}
               >
-                <SelectTrigger className="h-11 rounded-md border-slate-200 bg-white hover:bg-slate-50 focus:bg-white focus:ring-[#002388] transition-all font-medium">
+                <SelectTrigger className="h-10 border-slate-200 bg-white focus:ring-[#002388]/30">
                   <SelectValue placeholder="Select course..." />
                 </SelectTrigger>
                 <SelectContent>
                   {lecturerCourses.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)} className="font-medium">
+                    <SelectItem key={c.id} value={String(c.id)}>
                       {c.code} — {c.title}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
-            {errors.courseId && <p className="text-[10px] font-semibold text-rose-500 ml-1 italic">{errors.courseId}</p>}
+            <FieldError message={errors.courseId} />
           </div>
+        </div>
 
-          <div className="space-y-3 col-span-full pt-1">
-            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">
-              Assessment Type <span className="text-rose-500">*</span>
-            </Label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-               {/* Card 1: Exam */}
-               <button
-                 type="button"
-                 onClick={() => onChange({ type: "EXAM" })}
-                 className={`flex flex-col text-left p-4 rounded-xl border-2 transition-all duration-200 ${
-                   state.type === "EXAM" 
-                     ? "border-[#002388] bg-[#002388]/5 shadow-sm" 
-                     : "border-slate-200 bg-white hover:border-[#002388]/40 hover:bg-slate-50"
-                 }`}
-               >
-                 <div className="flex items-center justify-between w-full mb-1">
-                   <span className="font-semibold text-slate-900">Exam</span>
-                   <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
-                     state.type === "EXAM" ? "border-[#002388]" : "border-slate-300"
-                   }`}>
-                     {state.type === "EXAM" && <div className="h-2 w-2 rounded-full bg-[#002388]" />}
-                   </div>
-                 </div>
-                 <p className="text-[11px] text-slate-500 font-medium leading-relaxed">Formal evaluation with strict grading and structured sections.</p>
-               </button>
-
-               {/* Card 2: Quiz */}
-               <button
-                 type="button"
-                 onClick={() => onChange({ type: "QUIZ" })}
-                 className={`flex flex-col text-left p-4 rounded-xl border-2 transition-all duration-200 ${
-                   state.type === "QUIZ" 
-                     ? "border-[#002388] bg-[#002388]/5 shadow-sm" 
-                     : "border-slate-200 bg-white hover:border-[#002388]/40 hover:bg-slate-50"
-                 }`}
-               >
-                 <div className="flex items-center justify-between w-full mb-1">
-                   <span className="font-semibold text-slate-900">Quiz</span>
-                   <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
-                     state.type === "QUIZ" ? "border-[#002388]" : "border-slate-300"
-                   }`}>
-                     {state.type === "QUIZ" && <div className="h-2 w-2 rounded-full bg-[#002388]" />}
-                   </div>
-                 </div>
-                 <p className="text-[11px] text-slate-500 font-medium leading-relaxed">Short, lightweight assessment for quick knowledge checks.</p>
-               </button>
-
-               {/* Card 3: Assignment */}
-               <button
-                 type="button"
-                 onClick={() => onChange({ type: "ASSIGNMENT" })}
-                 className={`flex flex-col text-left p-4 rounded-xl border-2 transition-all duration-200 ${
-                   state.type === "ASSIGNMENT" 
-                     ? "border-[#002388] bg-[#002388]/5 shadow-sm" 
-                     : "border-slate-200 bg-white hover:border-[#002388]/40 hover:bg-slate-50"
-                 }`}
-               >
-                 <div className="flex items-center justify-between w-full mb-1">
-                   <span className="font-semibold text-slate-900">Assignment</span>
-                   <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
-                     state.type === "ASSIGNMENT" ? "border-[#002388]" : "border-slate-300"
-                   }`}>
-                     {state.type === "ASSIGNMENT" && <div className="h-2 w-2 rounded-full bg-[#002388]" />}
-                   </div>
-                 </div>
-                 <p className="text-[11px] text-slate-500 font-medium leading-relaxed">Project or task-based evaluation requiring detailed review.</p>
-               </button>
-            </div>
-            {errors.type && <p className="text-[10px] font-semibold text-rose-500 ml-1 italic">{errors.type}</p>}
+        {/* Assessment Type */}
+        <div className="space-y-2">
+          <Label className="text-xs text-slate-600">
+            Assessment Type <span className="text-rose-500">*</span>
+          </Label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {(["EXAM", "QUIZ", "ASSIGNMENT"] as const).map((type) => {
+              const labels: Record<string, { title: string; desc: string }> = {
+                EXAM: { title: "Exam", desc: "Formal evaluation with structured sections." },
+                QUIZ: { title: "Quiz", desc: "Short assessment for quick knowledge checks." },
+                ASSIGNMENT: { title: "Assignment", desc: "Task-based evaluation requiring detailed review." },
+              }
+              const isSelected = state.type === type
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => onChange({ type })}
+                  className={`flex items-start gap-3 p-4 rounded-lg border text-left transition-all ${
+                    isSelected
+                      ? "border-[#002388] bg-[#002388]/5"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                  }`}
+                >
+                  <div className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 flex items-center justify-center transition-all ${
+                    isSelected ? "border-[#002388]" : "border-slate-300"
+                  }`}>
+                    {isSelected && <div className="h-2 w-2 rounded-full bg-[#002388]" />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">{labels[type].title}</p>
+                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{labels[type].desc}</p>
+                  </div>
+                </button>
+              )
+            })}
           </div>
+          <FieldError message={errors.type} />
+        </div>
+      </div>
 
+      {/* Schedule */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-5">
+        <SectionHeader label="Schedule & Duration" />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-1.5">
-            <Label htmlFor="startsAt" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">
+            <Label htmlFor="startsAt" className="text-xs text-slate-600">
               Start Date & Time <span className="text-rose-500">*</span>
             </Label>
             <div className="relative">
-              <CalendarClock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+              <CalendarClock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               <Input
                 id="startsAt"
                 type="datetime-local"
                 value={state.startsAt}
                 onChange={(e) => onChange({ startsAt: e.target.value })}
-                className="h-11 rounded-md border-slate-200 bg-white hover:bg-slate-50 focus:bg-white focus:ring-[#002388] transition-all font-medium pl-10 w-full"
+                className="h-10 pl-9 border-slate-200 bg-white focus-visible:ring-[#002388]/30"
               />
             </div>
-            {errors.startsAt && <p className="text-[10px] font-semibold text-rose-500 ml-1 italic">{errors.startsAt}</p>}
+            <FieldError message={errors.startsAt} />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="endsAt" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">
+            <Label htmlFor="endsAt" className="text-xs text-slate-600">
               End Date & Time <span className="text-rose-500">*</span>
             </Label>
             <div className="relative">
-              <CalendarClock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+              <CalendarClock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               <Input
                 id="endsAt"
                 type="datetime-local"
                 value={state.endsAt}
                 onChange={(e) => onChange({ endsAt: e.target.value })}
-                className="h-11 rounded-md border-slate-200 bg-white hover:bg-slate-50 focus:bg-white focus:ring-[#002388] transition-all font-medium pl-10 w-full"
+                className="h-10 pl-9 border-slate-200 bg-white focus-visible:ring-[#002388]/30"
               />
             </div>
-            {errors.endsAt && <p className="text-[10px] font-semibold text-rose-500 ml-1 italic">{errors.endsAt}</p>}
+            <FieldError message={errors.endsAt} />
           </div>
 
           {getWindowSummary(state.startsAt, state.endsAt) && (
-            <div className="col-span-full flex items-center gap-2.5 px-4 py-2.5 rounded-md bg-[#002388]/5 border border-[#002388]/10">
-              <Clock className="h-4 w-4 text-[#002388] shrink-0" />
-              <p className="text-xs font-semibold text-[#002388]">
+            <div className="col-span-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-[#002388]/5 border border-[#002388]/10">
+              <Clock className="h-3.5 w-3.5 text-[#002388] shrink-0" />
+              <p className="text-xs text-[#002388]">
                 {getWindowSummary(state.startsAt, state.endsAt)}
               </p>
             </div>
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="durationMinutes" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">
-              Duration (Minutes) <span className="text-rose-500">*</span>
+            <Label htmlFor="durationMinutes" className="text-xs text-slate-600">
+              Duration (minutes) <span className="text-rose-500">*</span>
             </Label>
             <Input
               id="durationMinutes"
@@ -247,14 +213,14 @@ export default function Step1Basics({ state, onChange, lecturerCourses, errors }
               value={state.durationMinutes}
               onChange={(e) => onChange({ durationMinutes: e.target.value })}
               placeholder="e.g. 90"
-              className="h-11 rounded-md border-slate-200 bg-white hover:bg-slate-50 focus:bg-white focus:ring-[#002388] transition-all font-medium"
+              className="h-10 border-slate-200 bg-white focus-visible:ring-[#002388]/30"
             />
-            {errors.durationMinutes && <p className="text-[10px] font-semibold text-rose-500 ml-1 italic">{errors.durationMinutes}</p>}
+            <FieldError message={errors.durationMinutes} />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="maxAttempts" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">
-              Max Attempts <span className="text-rose-500">*</span>
+            <Label htmlFor="maxAttempts" className="text-xs text-slate-600">
+              Max Attempts
             </Label>
             <Input
               id="maxAttempts"
@@ -262,94 +228,95 @@ export default function Step1Basics({ state, onChange, lecturerCourses, errors }
               min={1}
               value={state.maxAttempts}
               onChange={(e) => onChange({ maxAttempts: e.target.value })}
-              className="h-11 rounded-md border-slate-200 bg-white hover:bg-slate-50 focus:bg-white focus:ring-[#002388] transition-all font-medium"
+              className="h-10 border-slate-200 bg-white focus-visible:ring-[#002388]/30"
             />
-            {errors.maxAttempts && <p className="text-[10px] font-semibold text-rose-500 ml-1 italic">{errors.maxAttempts}</p>}
           </div>
         </div>
       </div>
 
-      {/* Separator */}
-      <div className="h-px bg-slate-100 w-full" />
+      {/* Access & Security */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
+        <SectionHeader label="Access & Security" />
 
-      <div className="space-y-6">
-        <div className="flex items-center gap-4 pb-3 border-b border-slate-50">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-50 text-[#002388]">
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-          </div>
-          <h2 className="text-base font-semibold text-slate-900 tracking-tight">Access & Security</h2>
-        </div>
-
-        <div className="grid gap-6">
+        <div className="space-y-3">
           {/* Password Protection */}
-          <div className={`p-6 rounded-lg border transition-all duration-300 ${state.passwordProtected ? "bg-[#002388]/5 border-[#002388]/10" : "bg-slate-50/30 border-slate-100 hover:border-slate-200"}`}>
-            <div className="flex items-center justify-between mb-4">
+          <div className={`flex items-center justify-between p-4 rounded-lg border transition-all ${
+            state.passwordProtected ? "border-[#002388]/20 bg-[#002388]/5" : "border-slate-100 bg-slate-50/50"
+          }`}>
+            <div>
+              <p className="text-sm text-slate-800">Password Protection</p>
+              <p className="text-xs text-slate-500 mt-0.5">Restrict access with a password</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onChange({ passwordProtected: !state.passwordProtected, accessPassword: "" })}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                state.passwordProtected ? "bg-[#002388]" : "bg-slate-200"
+              }`}
+            >
+              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                state.passwordProtected ? "translate-x-4" : "translate-x-0.5"
+              }`} />
+            </button>
+          </div>
+
+          {state.passwordProtected && (
+            <div className="space-y-1.5 px-1 animate-in fade-in slide-in-from-top-1 duration-200">
+              <Label htmlFor="accessPassword" className="text-xs text-slate-600">
+                Access Password <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="accessPassword"
+                value={state.accessPassword}
+                onChange={(e) => onChange({ accessPassword: e.target.value })}
+                placeholder="Enter access password"
+                className="h-10 border-slate-200 bg-white focus-visible:ring-[#002388]/30"
+              />
+              <FieldError message={errors.accessPassword} />
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Shuffle Questions */}
+            <div className={`flex items-center justify-between p-4 rounded-lg border transition-all ${
+              state.shuffleQuestions ? "border-[#002388]/20 bg-[#002388]/5" : "border-slate-100 bg-slate-50/50"
+            }`}>
               <div>
-                <p className="text-sm font-semibold text-slate-900">Password Protection</p>
-                <p className="text-xs font-medium text-slate-500 mt-1">Restrict access to this assessment with a password</p>
+                <p className="text-sm text-slate-800">Shuffle Questions</p>
+                <p className="text-xs text-slate-500 mt-0.5">Randomize question order</p>
               </div>
               <button
                 type="button"
-                onClick={() => onChange({ passwordProtected: !state.passwordProtected, accessPassword: "" })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none ${state.passwordProtected ? "bg-[#002388]" : "bg-slate-200"}`}
+                onClick={() => onChange({ shuffleQuestions: !state.shuffleQuestions })}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  state.shuffleQuestions ? "bg-[#002388]" : "bg-slate-200"
+                }`}
               >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-all duration-300 ${state.passwordProtected ? "translate-x-6 shadow-sm" : "translate-x-1"}`} />
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                  state.shuffleQuestions ? "translate-x-4" : "translate-x-0.5"
+                }`} />
               </button>
-            </div>
-            
-            {state.passwordProtected && (
-              <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                <Label htmlFor="accessPassword" className="text-[10px] font-bold text-[#002388] uppercase tracking-widest ml-1">
-                  Access Password <span className="text-rose-500">*</span>
-                </Label>
-                <Input
-                  id="accessPassword"
-                  value={state.accessPassword}
-                  onChange={(e) => onChange({ accessPassword: e.target.value })}
-                  placeholder="Enter access password"
-                  className="h-11 rounded-md border-[#002388]/10 bg-white focus:ring-[#002388] font-medium"
-                />
-                {errors.accessPassword && <p className="text-[10px] font-semibold text-rose-500 ml-1 italic">{errors.accessPassword}</p>}
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Shuffle Questions */}
-            <div className={`p-6 rounded-lg border transition-all duration-300 ${state.shuffleQuestions ? "bg-[#002388]/5 border-[#002388]/10" : "bg-slate-50/30 border-slate-100 hover:border-slate-200"}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Shuffle Questions</p>
-                  <p className="text-[10px] font-medium text-slate-400 mt-1 uppercase tracking-wider">Randomize question order</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onChange({ shuffleQuestions: !state.shuffleQuestions })}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none ${state.shuffleQuestions ? "bg-[#002388]" : "bg-slate-200"}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-all duration-300 ${state.shuffleQuestions ? "translate-x-6 shadow-sm" : "translate-x-1"}`} />
-                </button>
-              </div>
             </div>
 
             {/* Shuffle Options */}
-            <div className={`p-6 rounded-lg border transition-all duration-300 ${state.shuffleOptions ? "bg-[#002388]/5 border-[#002388]/10" : "bg-slate-50/30 border-slate-100 hover:border-slate-200"}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Shuffle Options</p>
-                  <p className="text-[10px] font-medium text-slate-400 mt-1 uppercase tracking-wider">Randomize MCQ options</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onChange({ shuffleOptions: !state.shuffleOptions })}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none ${state.shuffleOptions ? "bg-[#002388]" : "bg-slate-200"}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-all duration-300 ${state.shuffleOptions ? "translate-x-6 shadow-sm" : "translate-x-1"}`} />
-                </button>
+            <div className={`flex items-center justify-between p-4 rounded-lg border transition-all ${
+              state.shuffleOptions ? "border-[#002388]/20 bg-[#002388]/5" : "border-slate-100 bg-slate-50/50"
+            }`}>
+              <div>
+                <p className="text-sm text-slate-800">Shuffle Options</p>
+                <p className="text-xs text-slate-500 mt-0.5">Randomize MCQ answer options</p>
               </div>
+              <button
+                type="button"
+                onClick={() => onChange({ shuffleOptions: !state.shuffleOptions })}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  state.shuffleOptions ? "bg-[#002388]" : "bg-slate-200"
+                }`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                  state.shuffleOptions ? "translate-x-4" : "translate-x-0.5"
+                }`} />
+              </button>
             </div>
           </div>
         </div>

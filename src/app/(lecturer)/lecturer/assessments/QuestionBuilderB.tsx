@@ -66,87 +66,77 @@ export default function QuestionBuilderB({
   }
 
   return (
-    <div className="group relative rounded-[24px] border border-slate-100 bg-white p-7 transition-all duration-300 hover:border-[#002388]/20 hover:shadow-xl hover:shadow-slate-200/40">
+    <div className="group rounded-lg border border-slate-200 bg-white p-5 transition-colors hover:border-slate-300">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white text-[11px] font-bold shadow-lg shadow-slate-900/20">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-white text-[11px] font-medium">
             {question.order}
           </div>
-          <div>
-            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Subjective Question</h4>
-          </div>
+          <span className="text-xs text-slate-400">Subjective</span>
         </div>
-        
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300">
-          <Button
+
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
             type="button"
-            variant="ghost"
-            size="icon"
             onClick={onMoveUp}
             disabled={isFirst}
-            className="h-9 w-9 rounded-xl text-slate-400 hover:text-[#002388] hover:bg-[#002388]/5 transition-all"
+            className="p-1.5 text-slate-400 hover:text-[#002388] hover:bg-[#002388]/5 rounded-md transition-all disabled:opacity-30 disabled:pointer-events-none"
           >
-            <ChevronUp size={18} />
-          </Button>
-          <Button
+            <ChevronUp size={15} />
+          </button>
+          <button
             type="button"
-            variant="ghost"
-            size="icon"
             onClick={onMoveDown}
             disabled={isLast}
-            className="h-9 w-9 rounded-xl text-slate-400 hover:text-[#002388] hover:bg-[#002388]/5 transition-all"
+            className="p-1.5 text-slate-400 hover:text-[#002388] hover:bg-[#002388]/5 rounded-md transition-all disabled:opacity-30 disabled:pointer-events-none"
           >
-            <ChevronDown size={18} />
-          </Button>
-          <div className="w-px h-4 bg-slate-100 mx-2" />
-          <Button
+            <ChevronDown size={15} />
+          </button>
+          <div className="w-px h-3.5 bg-slate-200 mx-1" />
+          <button
             type="button"
-            variant="ghost"
-            size="icon"
             onClick={onRemove}
-            className="h-9 w-9 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
+            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all"
           >
-            <Trash2 size={18} />
-          </Button>
+            <Trash2 size={15} />
+          </button>
         </div>
       </div>
 
-      <div className="space-y-8">
-        {/* Question Content */}
-        <div className="space-y-3">
-          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">Question Content</Label>
+      <div className="space-y-4">
+        {/* Question body */}
+        <div className="space-y-1.5">
+          <Label className="text-[11px] text-slate-500 uppercase tracking-wider">Question</Label>
           <textarea
             value={question.body}
             onChange={(e) => onChange({ ...question, body: e.target.value })}
             placeholder="Type your question here..."
             rows={3}
-            className="w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-medium outline-none resize-none focus:bg-white focus:border-[#002388]/30 transition-all placeholder:text-slate-400 leading-relaxed"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none resize-none focus:border-[#002388]/40 focus:ring-2 focus:ring-[#002388]/10 transition-all placeholder:text-slate-400 leading-relaxed"
           />
         </div>
 
-        {/* Configuration */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-3">
-            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">Answer Submission Format</Label>
+        {/* Config row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-[11px] text-slate-500 uppercase tracking-wider">Answer Format</Label>
             <Select
               value={question.answerType}
-              onValueChange={(v) =>
-                onChange({ ...question, answerType: v as QuestionFormState["answerType"] })
-              }
+              onValueChange={(v) => onChange({ ...question, answerType: v as QuestionFormState["answerType"] })}
             >
-              <SelectTrigger className="h-12 rounded-2xl border-slate-100 bg-slate-50/50 focus:bg-white focus:ring-[#002388]/30 transition-all font-semibold text-xs shadow-sm">
+              <SelectTrigger className="h-9 border-slate-200 bg-white text-sm focus:ring-[#002388]/30">
                 <SelectValue placeholder="Select format..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="FILL_IN" className="text-xs font-medium">Text Input / Rich Editor</SelectItem>
-                <SelectItem value="PDF_UPLOAD" className="text-xs font-medium">PDF Document Upload</SelectItem>
-                <SelectItem value="CODE" className="text-xs font-medium">Interactive Code Sandbox</SelectItem>
+                <SelectItem value="FILL_IN">Text / Rich Editor</SelectItem>
+                <SelectItem value="PDF_UPLOAD">PDF Upload</SelectItem>
+                <SelectItem value="CODE">Code Sandbox</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-3">
-            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">Allocated Marks</Label>
+          <div className="space-y-1.5">
+            <Label className="text-[11px] text-slate-500 uppercase tracking-wider">Marks</Label>
             <Input
               type="number"
               min={1}
@@ -154,69 +144,69 @@ export default function QuestionBuilderB({
               onChange={(e) => onChange({ ...question, marks: e.target.value })}
               placeholder="0"
               disabled={readonlyMarks}
-              className={`h-12 rounded-2xl border-slate-100 bg-slate-50/50 focus:bg-white focus:ring-[#002388]/30 transition-all font-bold text-center text-lg ${readonlyMarks ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+              className={`h-9 border-slate-200 bg-white text-center font-medium focus-visible:ring-[#002388]/30 ${
+                readonlyMarks ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             />
-            {readonlyMarks && <p className="text-[9px] text-center text-slate-400 font-medium italic mt-1">Synced to section</p>}
+            {readonlyMarks && (
+              <p className="text-[10px] text-center text-slate-400 italic">Synced to section</p>
+            )}
           </div>
         </div>
 
-        {/* Rubric Criteria */}
-        <div className="space-y-6 pt-4 border-t border-slate-50">
-          <div className="flex items-center justify-between px-1">
-            <div className="space-y-1">
-              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">Grading Rubric</Label>
-              <p className="text-[10px] text-slate-400 font-medium italic">Define how AI should distribute marks</p>
+        {/* Rubric */}
+        <div className="space-y-3 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-[11px] text-slate-500 uppercase tracking-wider">Grading Rubric</Label>
+              <p className="text-[10px] text-slate-400 mt-0.5">Define how AI distributes marks</p>
             </div>
-            <Button
+            <button
               type="button"
-              variant="ghost"
-              size="sm"
               onClick={addCriterion}
-              className="h-10 px-4 rounded-xl text-[10px] font-bold text-[#002388] bg-[#002388]/5 hover:bg-[#002388]/10 transition-all uppercase tracking-widest"
+              className="flex items-center gap-1 h-7 px-2.5 rounded-md text-xs text-[#002388] bg-[#002388]/5 hover:bg-[#002388]/10 transition-all"
             >
-              <Plus size={14} className="mr-2" />
+              <Plus size={12} />
               Add Criterion
-            </Button>
+            </button>
           </div>
 
           {question.rubricCriteria.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/30 p-6 text-center">
-              <p className="text-[10px] font-bold text-slate-400 italic uppercase tracking-wider">No rubric criteria specified</p>
+            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center">
+              <p className="text-xs text-slate-400">No rubric criteria yet</p>
             </div>
           ) : (
-            <div className="grid gap-3">
+            <div className="space-y-2">
               {question.rubricCriteria.map((criterion) => (
                 <div
                   key={criterion.id}
-                  className="group/item flex items-center gap-4 p-4 rounded-2xl border border-slate-50 bg-slate-50/30 hover:border-slate-100 transition-all duration-300"
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg border border-slate-100 bg-slate-50/50 hover:border-slate-200 transition-all"
                 >
                   <div className="flex-1">
                     <Input
                       value={criterion.description}
                       onChange={(e) => updateCriterion(criterion.id, "description", e.target.value)}
                       placeholder="e.g. Correct use of data structures"
-                      className="h-10 border-none bg-transparent focus-visible:ring-0 shadow-none font-medium px-1 text-sm"
+                      className="h-8 border-none bg-transparent focus-visible:ring-0 shadow-none text-sm px-0"
                     />
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Max:</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] text-slate-400">Max:</span>
                     <Input
                       type="number"
                       min={1}
                       value={criterion.maxMarks}
                       onChange={(e) => updateCriterion(criterion.id, "maxMarks", e.target.value)}
                       placeholder="0"
-                      className="h-9 w-20 rounded-xl border-slate-100 bg-white text-center font-bold text-xs focus:ring-[#002388]/30 shadow-sm"
+                      className="h-8 w-16 border-slate-200 bg-white text-center text-sm font-medium focus-visible:ring-[#002388]/30"
                     />
-                    <Button
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="icon"
                       onClick={() => removeCriterion(criterion.id)}
-                      className="h-9 w-9 rounded-xl text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-all"
+                      className="p-1 text-slate-300 hover:text-rose-500 rounded transition-all"
                     >
-                      <X size={16} />
-                    </Button>
+                      <X size={13} />
+                    </button>
                   </div>
                 </div>
               ))}

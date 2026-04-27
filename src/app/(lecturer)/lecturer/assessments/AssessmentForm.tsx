@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import Step1Basics from "./Step1Basics"
@@ -20,8 +20,6 @@ import type {
   AnswerTypeEnum,
 } from "@/lib/assessment-types"
 import { validatePublishConditions } from "@/lib/assessment-validation"
-
-// ─── Initial state factories ─────────────────────────────────────────────────
 
 function initStep1(): Step1State {
   return {
@@ -51,16 +49,12 @@ function initStep4(): Step4State {
   return { totalMarks: "" }
 }
 
-// ─── Step labels ──────────────────────────────────────────────────────────────
-
 const STEPS = [
   { label: "Basics" },
   { label: "Classes" },
   { label: "Questions" },
   { label: "Grading" },
 ]
-
-// ─── Validation ───────────────────────────────────────────────────────────────
 
 function validateStep1(s: Step1State): Partial<Record<keyof Step1State, string>> {
   const errors: Partial<Record<keyof Step1State, string>> = {}
@@ -96,8 +90,6 @@ function validateStep4(s: Step4State): Partial<Record<keyof Step4State, string>>
   return errors
 }
 
-// ─── Payload builder ──────────────────────────────────────────────────────────
-
 function buildPayload(
   s1: Step1State,
   s2: Step2State,
@@ -124,7 +116,8 @@ function buildPayload(
     classes: s2.selectedClasses.map((c) => ({ classId: c.classId })),
     sections: s3.sections.map((sec) => ({
       name: sec.name,
-      type: sec.type as any, // Typed correctly in API
+      type: sec.type as any,
+      requiredQuestionsCount: sec.requiredQuestionsCount ? parseInt(sec.requiredQuestionsCount) : null,
       questions: sec.questions.map((q) => ({
         order: q.order,
         body: q.body,
@@ -145,8 +138,6 @@ function buildPayload(
   }
 }
 
-// ─── Props ────────────────────────────────────────────────────────────────────
-
 export interface AssessmentFormProps {
   lecturerCourses: LecturerCourse[]
   assessmentId?: number | null
@@ -155,8 +146,6 @@ export interface AssessmentFormProps {
   initialStep3?: Step3State
   initialStep4?: Step4State
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AssessmentForm({
   lecturerCourses,
@@ -184,8 +173,6 @@ export default function AssessmentForm({
 
   const selectedCourse = lecturerCourses.find((c) => c.id === step1.courseId) ?? null
 
-  // ── Navigation ───────────────────────────────────────────────────────────────
-
   const handleContinue = () => {
     if (step === 0) {
       const errors = validateStep1(step1)
@@ -197,8 +184,6 @@ export default function AssessmentForm({
       setStep2Errors(errors)
       if (Object.keys(errors).length > 0) return
     }
-    
-    // Step 3 -> 4 transition: Auto-calculate total marks
     if (step === 2) {
       const calculated = step3.sections.reduce((total, sec) => {
         const required = Number(sec.requiredQuestionsCount) || sec.questions.length
@@ -209,7 +194,6 @@ export default function AssessmentForm({
       }, 0)
       setStep4({ totalMarks: String(calculated) })
     }
-    
     setStep((s) => Math.min(s + 1, 3))
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
@@ -218,8 +202,6 @@ export default function AssessmentForm({
     setStep((s) => Math.max(s - 1, 0))
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
-
-  // ── Submit ───────────────────────────────────────────────────────────────────
 
   const handleSubmit = async (status: "DRAFT" | "PUBLISHED") => {
     const errors4 = validateStep4(step4)
@@ -275,158 +257,133 @@ export default function AssessmentForm({
     }
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
-
   return (
-    <div className="mx-auto max-w-7xl w-full">
-      <div className="w-full lg:w-[80%] 2xl:w-[70%] mx-auto space-y-12 pb-16">
-      {/* Back link & Header */}
-      <div className="space-y-8">
+    <div className="mx-auto max-w-4xl w-full pb-16">
+      {/* Header */}
+      <div className="space-y-6 mb-10">
         <Link
           href="/lecturer/assessments"
-          className="inline-flex items-center gap-2 text-[10px] font-bold text-slate-400 hover:text-[#002388] uppercase tracking-[0.2em] transition-all"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-[#002388] transition-colors"
         >
-          <ArrowLeft size={12} strokeWidth={3} />
-          Back to Dashboard
+          <ArrowLeft size={13} />
+          Back to Assessments
         </Link>
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-              {isEditing ? "Edit Assessment" : "Create New Assessment"}
-            </h1>
-            <p className="text-sm font-medium text-slate-500">
-              {isEditing 
-                ? "Refine your assessment configuration and content." 
-                : "Set up a new assessment for your assigned academic courses."}
-            </p>
-          </div>
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl border border-slate-200">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Progress</span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-bold text-[#002388]">{step + 1}</span>
-              <span className="text-sm font-bold text-slate-300">/</span>
-              <span className="text-sm font-bold text-slate-500">{STEPS.length}</span>
-            </div>
-          </div>
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">
+            {isEditing ? "Edit Assessment" : "New Assessment"}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {isEditing
+              ? "Update your assessment configuration and content."
+              : "Set up a new assessment for your courses."}
+          </p>
         </div>
       </div>
 
-      <div className="space-y-8">
-        {/* Step indicator - Horizontal Stepper */}
-        <div className="flex items-center justify-between w-full max-w-3xl">
+      {/* Step indicator */}
+      <div className="mb-10">
+        <div className="flex items-center">
           {STEPS.map((s, i) => {
             const isActive = i === step
             const isDone = i < step
             return (
-              <div key={s.label} className="relative flex flex-col items-start flex-1">
-                {/* Horizontal Line Connector */}
-                {i < STEPS.length - 1 && (
-                  <div 
-                    className={`absolute left-[32px] top-[15px] h-[2px] w-full transition-all duration-500 z-0 ${
-                      isDone ? "bg-[#002388]" : "bg-slate-100"
-                    }`} 
-                  />
-                )}
-
-                {/* Step Circle */}
-                <div 
-                  className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 font-medium text-xs ${
-                    isActive 
-                      ? "border-[#002388] bg-white text-[#002388]" 
-                      : isDone 
-                        ? "border-[#002388] bg-[#002388] text-white" 
-                        : "border-slate-200 bg-white text-slate-400"
-                  }`}
-                >
-                  {i + 1}
-                </div>
-
+              <div key={s.label} className="flex items-center flex-1 last:flex-none">
                 <button
                   type="button"
-                  onClick={() => i < step && setStep(i)}
-                  disabled={!isDone && !isActive}
-                  className="mt-3 transition-all outline-none text-left"
+                  onClick={() => isDone && setStep(i)}
+                  disabled={!isDone}
+                  className="flex items-center gap-2.5 outline-none"
                 >
-                  <span className={`text-sm tracking-wide transition-colors ${
-                    isActive ? "text-[#002388] font-semibold" : isDone ? "text-slate-900 font-medium" : "text-slate-400 font-medium"
-                  }`}>
+                  <div
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-medium transition-all ${
+                      isDone
+                        ? "border-[#002388] bg-[#002388] text-white"
+                        : isActive
+                          ? "border-[#002388] bg-white text-[#002388]"
+                          : "border-slate-200 bg-white text-slate-400"
+                    }`}
+                  >
+                    {isDone ? <CheckCircle2 size={14} /> : i + 1}
+                  </div>
+                  <span
+                    className={`text-sm transition-colors ${
+                      isActive ? "text-[#002388] font-medium" : isDone ? "text-slate-700" : "text-slate-400"
+                    }`}
+                  >
                     {s.label}
                   </span>
                 </button>
+                {i < STEPS.length - 1 && (
+                  <div className={`mx-3 h-px flex-1 transition-colors ${isDone ? "bg-[#002388]" : "bg-slate-200"}`} />
+                )}
               </div>
             )
           })}
         </div>
-
-        {/* Step content */}
-        <div className="space-y-12">
-          <div className="w-full">
-            {step === 0 && (
-              <Step1Basics
-                state={step1}
-                onChange={(u) => setStep1((prev) => ({ ...prev, ...u }))}
-                lecturerCourses={lecturerCourses}
-                errors={step1Errors}
-              />
-            )}
-            {step === 1 && (
-              <Step2Classes
-                state={step2}
-                onChange={(u) => setStep2((prev) => ({ ...prev, ...u }))}
-                selectedCourse={selectedCourse}
-                errors={step2Errors}
-              />
-            )}
-            {step === 2 && (
-              <Step3Questions
-                state={step3}
-                onChange={setStep3}
-                errors={step3Errors}
-                courseId={step1.courseId}
-              />
-            )}
-            {step === 3 && (
-              <Step4Grading
-                state={step4}
-                sections={step3.sections}
-                onChange={(u) => setStep4((prev) => ({ ...prev, ...u }))}
-                errors={step4Errors}
-                onSaveAsDraft={() => handleSubmit("DRAFT")}
-                onPublish={() => handleSubmit("PUBLISHED")}
-                onBack={() => setStep(step - 1)}
-                isSubmitting={isSubmitting}
-              />
-            )}
-          </div>
-
-          {/* Navigation footer */}
-          {step < 3 && (
-            <div className="flex items-center justify-between gap-4">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleBack}
-                disabled={step === 0}
-                className="h-11 px-6 rounded-md font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-0 transition-all"
-              >
-                Previous Step
-              </Button>
-              <Button
-                type="button"
-                onClick={handleContinue}
-                className="h-11 px-6 rounded-md bg-[#002388] hover:bg-[#0B4DBB] text-white font-semibold transition-all flex items-center gap-2"
-              >
-                Continue to {STEPS[step + 1].label}
-                <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
-                  <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </Button>
-            </div>
-          )}
-        </div>
       </div>
-    </div>
+
+      {/* Step content */}
+      <div className="space-y-8">
+        {step === 0 && (
+          <Step1Basics
+            state={step1}
+            onChange={(u) => setStep1((prev) => ({ ...prev, ...u }))}
+            lecturerCourses={lecturerCourses}
+            errors={step1Errors}
+          />
+        )}
+        {step === 1 && (
+          <Step2Classes
+            state={step2}
+            onChange={(u) => setStep2((prev) => ({ ...prev, ...u }))}
+            selectedCourse={selectedCourse}
+            errors={step2Errors}
+          />
+        )}
+        {step === 2 && (
+          <Step3Questions
+            state={step3}
+            onChange={setStep3}
+            errors={step3Errors}
+            courseId={step1.courseId}
+          />
+        )}
+        {step === 3 && (
+          <Step4Grading
+            state={step4}
+            sections={step3.sections}
+            onChange={(u) => setStep4((prev) => ({ ...prev, ...u }))}
+            errors={step4Errors}
+            onSaveAsDraft={() => handleSubmit("DRAFT")}
+            onPublish={() => handleSubmit("PUBLISHED")}
+            onBack={() => setStep(step - 1)}
+            isSubmitting={isSubmitting}
+          />
+        )}
+
+        {/* Navigation footer */}
+        {step < 3 && (
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleBack}
+              disabled={step === 0}
+              className="h-9 px-4 text-slate-500 hover:text-slate-900 disabled:opacity-0"
+            >
+              Previous
+            </Button>
+            <Button
+              type="button"
+              onClick={handleContinue}
+              className="h-9 px-5 bg-[#002388] hover:bg-[#0B4DBB] text-white font-medium"
+            >
+              Continue to {STEPS[step + 1].label}
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -1,10 +1,8 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { complementWeight } from "@/lib/assessment-validation"
 import type { Step4State, SectionFormState } from "@/lib/assessment-types"
+import { ArrowLeft, FileText, Send } from "lucide-react"
 
 interface Step4GradingProps {
   state: Step4State
@@ -35,122 +33,120 @@ export default function Step4Grading({
     return total + sortedMarks.slice(0, required).reduce((sum, m) => sum + m, 0)
   }, 0)
 
+  const totalQuestions = sections.reduce((acc, sec) => acc + sec.questions.length, 0)
 
   return (
-    <div className="space-y-12">
-      <div className="space-y-8">
-        <div className="flex items-center gap-4 pb-4 border-b border-slate-50">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-[#002388]">
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20v-6M9 20v-10M15 20v-2M3 20h18" />
-            </svg>
+    <div className="space-y-6">
+      {/* Summary card */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
+        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.12em] mb-4">
+          Grading Summary
+        </p>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+            <p className="text-xs text-slate-500 mb-1">Total Marks</p>
+            <p className="text-2xl font-semibold text-[#002388]">{totalMarks}</p>
           </div>
-          <h2 className="text-base font-semibold text-slate-900 tracking-tight">Grading Configuration</h2>
+          <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+            <p className="text-xs text-slate-500 mb-1">Sections</p>
+            <p className="text-2xl font-semibold text-slate-900">{sections.length}</p>
+          </div>
+          <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+            <p className="text-xs text-slate-500 mb-1">Questions</p>
+            <p className="text-2xl font-semibold text-slate-900">{totalQuestions}</p>
+          </div>
+          <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+            <p className="text-xs text-slate-500 mb-1">Grading</p>
+            <p className="text-sm font-medium text-slate-700 mt-1">Automated</p>
+          </div>
         </div>
 
-        <div className="p-6 rounded-[24px] bg-[#002388]/5 border border-[#002388]/10 flex items-center justify-between">
-          <div className="space-y-1">
-            <h3 className="text-sm font-bold text-[#002388] uppercase tracking-wider">Automated Grading</h3>
-            <p className="text-xs text-slate-500 font-medium">Total marks are calculated automatically based on your questions and section criteria.</p>
+        {sections.length > 0 && (
+          <div className="rounded-lg border border-slate-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Section</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Type</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Questions</th>
+                  <th className="px-4 py-2.5 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Marks</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {sections.map((sec) => {
+                  const required = Number(sec.requiredQuestionsCount) || sec.questions.length
+                  const sortedMarks = sec.questions.map((q) => Number(q.marks) || 0).sort((a, b) => b - a)
+                  const secMarks = sortedMarks.slice(0, required).reduce((acc, m) => acc + m, 0)
+                  const pct = totalMarks > 0 ? Math.round((secMarks / totalMarks) * 100) : 0
+
+                  return (
+                    <tr key={sec.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-4 py-3 text-slate-900">
+                        {sec.name || <span className="text-slate-400 italic">Untitled</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${
+                          sec.type === "OBJECTIVE"
+                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                            : "bg-purple-50 text-purple-700 border-purple-200"
+                        }`}>
+                          {sec.type === "OBJECTIVE" ? "Objective" : "Subjective"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 text-xs">
+                        {sec.requiredQuestionsCount
+                          ? `${sec.requiredQuestionsCount} of ${sec.questions.length}`
+                          : `All ${sec.questions.length}`}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-medium text-slate-900">{secMarks}</span>
+                        <span className="text-xs text-slate-400 ml-1">({pct}%)</span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+              <tfoot className="border-t border-slate-200 bg-slate-50">
+                <tr>
+                  <td colSpan={3} className="px-4 py-2.5 text-xs font-medium text-slate-600">Total</td>
+                  <td className="px-4 py-2.5 text-right font-semibold text-[#002388]">{totalMarks} pts</td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
-          <div className="h-10 w-10 rounded-full bg-[#002388] flex items-center justify-center text-white shadow-lg shadow-blue-900/20">
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Preview Card */}
-      {totalMarks > 0 && (
-        <div className="rounded-[40px] bg-slate-900 p-10 text-white shadow-2xl shadow-slate-900/20">
-          <div className="flex items-center justify-between mb-10">
-            <div>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Distribution Overview</p>
-              <h3 className="text-2xl font-bold mt-2">Marks Summary</h3>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Max Obtainable Score</p>
-              <p className="text-4xl font-bold text-white mt-1">{totalMarks} <span className="text-xs text-slate-500 ml-1">pts</span></p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {sections.map((sec) => {
-              const required = Number(sec.requiredQuestionsCount) || sec.questions.length
-              const sortedMarks = sec.questions.map((q) => Number(q.marks) || 0).sort((a, b) => b - a)
-              const secMarks = sortedMarks.slice(0, required).reduce((acc, m) => acc + m, 0)
-              const percentage = totalMarks > 0 ? Math.round((secMarks / totalMarks) * 100) : 0
-              
-              return (
-                <div key={sec.id} className="p-6 rounded-[24px] bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all duration-300">
-                  <div className="flex items-center justify-between mb-6">
-                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest line-clamp-1 pr-2">{sec.name || "Untitled Section"}</span>
-                    <span className="text-[10px] font-bold bg-white/10 px-2.5 py-1 rounded-lg text-white/60">{percentage}%</span>
-                  </div>
-                  <div className="flex items-baseline gap-1">
-                    <p className="text-5xl font-bold tracking-tighter">{secMarks}</p>
-                    <span className="text-sm font-bold text-white/20">pts</span>
-                  </div>
-                  
-                  <div className="mt-4 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className={`h-1.5 w-1.5 rounded-full ${sec.type === "OBJECTIVE" ? "bg-blue-400" : "bg-purple-400"}`} />
-                      <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">
-                        {sec.type === "OBJECTIVE" ? "Objective" : "Subjective"}
-                      </p>
-                    </div>
-                    
-                    <p className="text-[10px] font-medium text-white/30 italic leading-relaxed">
-                      {sec.requiredQuestionsCount 
-                        ? `Student must answer ${sec.requiredQuestionsCount} of ${sec.questions.length} questions.`
-                        : `Student must answer all ${sec.questions.length} questions.`}
-                    </p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Submission Actions */}
-      <div className="flex flex-col sm:flex-row gap-4 pt-6">
+      {/* Actions */}
+      <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           onClick={onBack}
           disabled={isSubmitting}
-          className="h-12 w-12 rounded-md border-slate-200 text-slate-400 hover:text-slate-900 hover:bg-slate-50 transition-all flex items-center justify-center shrink-0"
+          className="h-9 w-9 p-0 text-slate-400 hover:text-slate-700"
         >
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m15 18-6-6 6-6" />
-          </svg>
+          <ArrowLeft size={16} />
         </Button>
         <Button
           type="button"
           variant="outline"
           onClick={onSaveAsDraft}
           disabled={isSubmitting}
-          className="h-12 flex-1 rounded-md border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 hover:text-slate-900 transition-all"
+          className="h-9 px-4 border-slate-200 text-slate-600 hover:bg-slate-50 text-sm"
         >
-          {isSubmitting ? "Processing..." : "Save as Draft"}
+          <FileText size={14} className="mr-1.5" />
+          {isSubmitting ? "Saving..." : "Save as Draft"}
         </Button>
         <Button
           type="button"
           onClick={onPublish}
           disabled={isSubmitting}
-          className="h-12 flex-[2] rounded-md bg-[#002388] hover:bg-[#0B4DBB] text-white font-semibold transition-all flex items-center justify-center gap-2"
+          className="h-9 px-5 bg-[#002388] hover:bg-[#0B4DBB] text-white text-sm ml-auto"
         >
-          {isSubmitting ? "Publishing..." : (
-            <>
-              Confirm & Publish
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12h14" />
-                <path d="m12 5 7 7-7 7" />
-              </svg>
-            </>
-          )}
+          <Send size={14} className="mr-1.5" />
+          {isSubmitting ? "Publishing..." : "Publish Assessment"}
         </Button>
       </div>
     </div>
