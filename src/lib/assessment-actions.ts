@@ -109,7 +109,7 @@ export async function logTabSwitch(attemptId: number, timestamp: string): Promis
   })
 }
 
-export async function submitAttempt(attemptId: number, reason?: 'TIMED_OUT'): Promise<SubmitResult> {
+export async function submitAttempt(attemptId: number, reason?: 'TIMED_OUT' | 'FULLSCREEN_VIOLATION' | 'TAB_SWITCH'): Promise<SubmitResult> {
   const session = await getSession()
   if (!session?.user || session.user.role !== 'STUDENT') return { error: 'UNAUTHORIZED' }
 
@@ -189,13 +189,26 @@ export async function submitAttempt(attemptId: number, reason?: 'TIMED_OUT'): Pr
     else grade = 'F'
   }
 
+  // Append the submission reason to the tab switch log so the detail page can show the right message
+  const currentAttempt = await prisma.assessmentAttempt.findUnique({
+    where: { id: attemptId },
+    select: { tabSwitchLog: true },
+  })
+  const existingLog = Array.isArray(currentAttempt?.tabSwitchLog) ? currentAttempt.tabSwitchLog : []
+  const logWithReason = reason
+    ? [...existingLog, { timestamp: new Date().toISOString(), event: reason }]
+    : existingLog
+
+  // Map all forced-submit reasons to TIMED_OUT (the only non-SUBMITTED status in the DB enum)
+  const dbStatus = reason ? 'TIMED_OUT' : 'SUBMITTED'
+
   await prisma.assessmentAttempt.update({
     where: { id: attemptId },
     data: {
-      status: reason ?? 'SUBMITTED',
+      status: dbStatus,
       submittedAt: new Date(),
       score: mcqScore,
-      // grade is null until external grader completes (if subjective questions exist)
+      tabSwitchLog: logWithReason,
       ...(grade !== null ? { grade } : {}),
     },
   })

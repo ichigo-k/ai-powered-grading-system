@@ -6,6 +6,7 @@ import { submitAttempt } from "@/lib/assessment-actions"
 import type { SerializedActiveAttempt, SerializedAssessmentDetail } from "./page"
 import LockdownOverlay from "@/components/student/LockdownOverlay"
 import AntiCheatGuard from "@/components/student/AntiCheatGuard"
+import type { ViolationReason } from "@/lib/violation-tracker"
 import QuestionRenderer from "@/components/student/QuestionRenderer"
 import CountdownTimer from "@/components/student/CountdownTimer"
 import {
@@ -46,12 +47,14 @@ function QuestionSelectionScreen({
   section,
   required,
   selectedIds,
+  isReselecting,
   onToggle,
   onConfirm,
 }: {
   section: SectionWithProgress
   required: number
   selectedIds: Set<number>
+  isReselecting?: boolean
   onToggle: (id: number) => void
   onConfirm: () => void
 }) {
@@ -59,18 +62,20 @@ function QuestionSelectionScreen({
   const ready = count === required
 
   return (
-    <div className="flex-1 overflow-y-auto px-8 py-10">
+    <div className="flex-1 overflow-y-auto px-16 py-10">
       {/* Instruction banner */}
       <div className="mb-8">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-1">
           {section.name}
         </p>
         <h2 className="text-[20px] font-semibold text-[#111827] mb-1" style={{ fontFamily: "var(--font-sans,'Poppins',sans-serif)" }}>
-          Choose your questions
+          {isReselecting ? "Change your selection" : "Choose your questions"}
         </h2>
         <p className="text-[14px] text-[#6b7280]" style={{ fontFamily: "var(--font-sans,'Poppins',sans-serif)" }}>
-          Select exactly <strong className="text-[#111827]">{required}</strong> questions to answer from the{" "}
-          {section.questions.length} below. You cannot change your selection once you begin.
+          {isReselecting
+            ? <>Update your selection — pick exactly <strong className="text-[#111827]">{required}</strong> questions from the {section.questions.length} below.</>
+            : <>Select exactly <strong className="text-[#111827]">{required}</strong> questions to answer from the {section.questions.length} below.</>
+          }
         </p>
         <div className="mt-3 flex items-center gap-2">
           <div className="h-1.5 w-48 rounded-full bg-[#f3f4f6] overflow-hidden">
@@ -355,7 +360,7 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
   const activeSectionSelection = activeSection ? getSectionSelectedIds(activeSection.id) : null
   const needsSelection = activeSectionHasQuota && activeSectionSelection === undefined
 
-  // Questions visible in the palette (only selected ones for quota sections)
+  // Questions visible in the palette — for quota sections, only the confirmed selection
   const visibleQuestions = activeSection
     ? activeSectionSelection instanceof Set
       ? activeSection.questions.filter((q) => (activeSectionSelection as Set<number>).has(q.id))
@@ -364,13 +369,17 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
 
   const activeQuestion: QuestionWithAnswer | null = activeSection && visibleQuestions.length > 0
     ? (() => {
-        const q = visibleQuestions[activeQuestionIndex]
+        // Clamp index in case visibleQuestions shrank (e.g. after confirming a smaller selection)
+        const clampedIndex = Math.min(activeQuestionIndex, visibleQuestions.length - 1)
+        const q = visibleQuestions[clampedIndex]
         if (!q) return null
         return { ...q, sectionType: activeSection.type, existingAnswer: answers.get(q.id) ?? null }
       })()
     : null
 
   const totalQuestionsInSection = visibleQuestions.length
+  // Use clamped index everywhere so header/nav stay consistent
+  const safeActiveIndex = Math.min(activeQuestionIndex, Math.max(0, totalQuestionsInSection - 1))
 
   const totalRequired = assessment.sections.reduce((sum, s) => sum + (s.requiredQuestionsCount ?? s.questions.length), 0)
   const totalAnsweredAll = sectionsWithProgress.reduce((sum, s) => sum + Math.min(s.answeredCount, s.requiredQuestionsCount ?? s.questions.length), 0)
@@ -396,12 +405,23 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
     })
   }
 
+  // Track which sections have had their selection confirmed at least once (for re-selection UX)
+  const [everConfirmedSections, setEverConfirmedSections] = useState<Set<number>>(new Set())
+
   function handleConfirmSelection() {
     if (!activeSection) return
     setSectionSelections((prev) => new Map(prev).set(activeSection.id, new Set(pendingSelection)))
+    setEverConfirmedSections((prev) => new Set(prev).add(activeSection.id))
     setActiveQuestionIndex(0)
   }
 
+  function handleChangeSelection() {
+    if (!activeSection) return
+    const current = getSectionSelectedIds(activeSection.id)
+    setPendingSelection(current instanceof Set ? new Set(current) : new Set())
+    setSectionSelections((prev) => new Map(prev).set(activeSection.id, undefined))
+    setActiveQuestionIndex(0)
+  }
   const handleAnswerChange = useCallback((
     questionId: number,
     payload: { answerText: string | null; selectedOption: number | null; fileUrl: string | null }
@@ -411,13 +431,17 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
 
   async function handleExpire() {
     await submitAttempt(attempt.id, "TIMED_OUT")
-    router.push(`/student/assessments/${assessmentId}`)
+    window.location.href = `/student/assessments/${assessmentId}`
   }
 
-  function handleSubmitConfirm() {
+  function handleSubmitConfirm(reason?: "TIMED_OUT" | "FULLSCREEN_VIOLATION" | "TAB_SWITCH" | ViolationReason) {
     startTransition(async () => {
-      await submitAttempt(attempt.id)
-      router.push(`/student/assessments/${assessmentId}`)
+      // Map ViolationReason to the DB reason type
+      const dbReason = reason === "FULLSCREEN_EXIT" ? "FULLSCREEN_VIOLATION"
+        : reason === "TAB_SWITCH" ? "TAB_SWITCH"
+        : reason
+      await submitAttempt(attempt.id, dbReason as "TIMED_OUT" | "FULLSCREEN_VIOLATION" | "TAB_SWITCH" | undefined)
+      window.location.href = `/student/assessments/${assessmentId}`
     })
   }
 
@@ -428,8 +452,8 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
 
   return (
     <>
-      <LockdownOverlay isSecured={isSecured} onSubmit={() => setShowSubmitDialog(true)} />
-      <AntiCheatGuard isSecured={isSecured} attemptId={attempt.id} />
+      <LockdownOverlay isSecured={isSecured} attemptId={attempt.id} onSubmit={(reason) => handleSubmitConfirm(reason)} />
+      <AntiCheatGuard isSecured={isSecured} attemptId={attempt.id} onSubmit={(reason) => handleSubmitConfirm(reason)} />
 
       {showSubmitDialog && (
         <SubmitDialog
@@ -437,7 +461,7 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
           totalRequired={totalRequired}
           answeredCount={totalAnsweredAll}
           isPending={isPending}
-          onConfirm={handleSubmitConfirm}
+          onConfirm={() => handleSubmitConfirm()}
           onCancel={() => setShowSubmitDialog(false)}
         />
       )}
@@ -511,10 +535,10 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
               <p className="text-[10px] font-semibold uppercase tracking-wider text-[#9ca3af] mb-2 px-1">Questions</p>
               {activeSection && (
                 <QuestionPalette
-                  questions={activeSection.questions}
+                  questions={visibleQuestions}
                   answeredIds={answeredIdsInSection}
-                  selectedIds={activeSectionSelection instanceof Set ? activeSectionSelection : null}
-                  activeIndex={activeQuestionIndex}
+                  selectedIds={null}
+                  activeIndex={safeActiveIndex}
                   onSelect={setActiveQuestionIndex}
                 />
               )}
@@ -547,7 +571,7 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
         <main className="flex flex-1 flex-col overflow-hidden bg-white">
 
           {/* Top bar */}
-          <header className="flex items-center justify-between border-b border-[#ebebeb] px-8 py-3 shrink-0">
+          <header className="flex items-center justify-between border-b border-[#ebebeb] px-16 py-3 shrink-0">
             <div className="flex items-center gap-3">
               {activeSection && (
                 <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${
@@ -560,16 +584,26 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
               {!needsSelection && (
                 <>
                   <span className="text-[#e5e7eb]">·</span>
-                  <span className="text-[12px] text-[#9ca3af]">{activeQuestionIndex + 1} / {totalQuestionsInSection}</span>
+                  <span className="text-[12px] text-[#9ca3af]">{safeActiveIndex + 1} / {totalQuestionsInSection}</span>
                 </>
               )}
             </div>
 
             <div className="flex items-center gap-4">
               {activeSectionHasQuota && !needsSelection && (
-                <span className="text-[12px] text-[#6b7280]">
-                  Answering <strong className="text-[#374151]">{activeSectionRequired}</strong> of {activeSection?.questions.length} questions
-                </span>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[12px] text-[#6b7280]">
+                    Answering <strong className="text-[#374151]">{activeSectionRequired}</strong> of {activeSection?.questions.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleChangeSelection}
+                    className="flex items-center gap-1.5 rounded-md border border-[#e5e7eb] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#374151] hover:bg-[#f9fafb] hover:border-[#d1d5db] transition-colors"
+                  >
+                    <ListChecks size={13} className="text-[#6b7280]" />
+                    Change selection
+                  </button>
+                </div>
               )}
               <div className="hidden sm:flex items-center gap-2">
                 <div className="h-1 w-24 rounded-full bg-[#f3f4f6] overflow-hidden">
@@ -587,14 +621,15 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
               section={{ ...activeSection, answeredCount: 0 }}
               required={activeSectionRequired!}
               selectedIds={pendingSelection}
+              isReselecting={activeSection ? everConfirmedSections.has(activeSection.id) : false}
               onToggle={handleTogglePending}
               onConfirm={handleConfirmSelection}
             />
           ) : (
             <>
-              {/* Question area — full width, no centering */}
+              {/* Question area — full width with comfortable side padding */}
               <div className="flex-1 overflow-y-auto">
-                <div className="w-full px-8 py-10">
+                <div className="w-full px-16 py-10" style={{ maxWidth: "none" }}>
                   {activeQuestion ? (
                     <QuestionRenderer
                       key={activeQuestion.id}
@@ -612,10 +647,10 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
               </div>
 
               {/* Bottom nav */}
-              <footer className="flex items-center justify-between border-t border-[#ebebeb] px-8 py-3 shrink-0">
+              <footer className="flex items-center justify-between border-t border-[#ebebeb] px-16 py-3 shrink-0">
                 <button type="button"
                   onClick={() => setActiveQuestionIndex((i) => Math.max(0, i - 1))}
-                  disabled={activeQuestionIndex === 0}
+                  disabled={safeActiveIndex === 0}
                   className="flex items-center gap-1.5 rounded-lg border border-[#e5e7eb] px-4 py-2 text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft size={15} />Previous
@@ -625,7 +660,7 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
                   {visibleQuestions.map((q, i) => (
                     <button key={q.id} type="button" onClick={() => setActiveQuestionIndex(i)}
                       className={`rounded-full transition-all ${
-                        i === activeQuestionIndex ? "w-5 h-1.5 bg-[#111827]"
+                        i === safeActiveIndex ? "w-5 h-1.5 bg-[#111827]"
                         : answeredIdsInSection.has(q.id) ? "w-1.5 h-1.5 bg-[#86efac]"
                         : "w-1.5 h-1.5 bg-[#e5e7eb]"
                       }`}
@@ -634,7 +669,7 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
                   ))}
                 </div>
 
-                {activeQuestionIndex < totalQuestionsInSection - 1 ? (
+                {safeActiveIndex < totalQuestionsInSection - 1 ? (
                   <button type="button"
                     onClick={() => setActiveQuestionIndex((i) => Math.min(totalQuestionsInSection - 1, i + 1))}
                     className="flex items-center gap-1.5 rounded-lg bg-[#002388] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#0B4DBB] transition-colors"
