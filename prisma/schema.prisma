@@ -41,6 +41,18 @@ enum AnswerType {
   CODE
 }
 
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  TIMED_OUT
+}
+
+enum GradingStatus {
+  NOT_GRADED
+  GRADING
+  GRADED
+}
+
 model User {
   id           Int        @id @default(autoincrement())
   email        String     @unique
@@ -55,6 +67,8 @@ model User {
   studentProfile  StudentProfile?
   lecturerProfile LecturerProfile?
   adminProfile    AdminProfile?
+
+  attempts AssessmentAttempt[]
 
   @@map("users")
 }
@@ -162,12 +176,15 @@ model Assessment {
   shuffleOptions    Boolean          @default(false)
   isLocationBound   Boolean          @default(false)
   location          String?
+  gradingStatus     GradingStatus    @default(NOT_GRADED)
+  resultsReleased   Boolean          @default(false)
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
   classes   AssessmentClass[]
   questions Question[]
   sections  AssessmentSection[]
+  attempts  AssessmentAttempt[]
 
   @@map("assessments")
 }
@@ -211,6 +228,7 @@ model Question {
   createdAt    DateTime    @default(now())
 
   rubricCriteria RubricCriterion[]
+  studentAnswers StudentAnswer[]
 
   @@map("questions")
 }
@@ -267,4 +285,42 @@ model QuestionBankItemRubric {
   order       Int
 
   @@map("question_bank_item_rubrics")
+}
+
+model AssessmentAttempt {
+  id             Int           @id @default(autoincrement())
+  assessmentId   Int
+  assessment     Assessment    @relation(fields: [assessmentId], references: [id])
+  studentId      Int
+  student        User          @relation(fields: [studentId], references: [id])
+  startedAt      DateTime      @default(now())
+  submittedAt    DateTime?
+  status         AttemptStatus @default(IN_PROGRESS)
+  score          Float?
+  grade          String?
+  attemptNumber  Int
+  questionOrder  Json          @default("[]")
+  tabSwitchLog   Json          @default("[]")
+
+  answers StudentAnswer[]
+
+  @@unique([assessmentId, studentId, attemptNumber])
+  @@map("assessment_attempts")
+}
+
+model StudentAnswer {
+  id             Int               @id @default(autoincrement())
+  attemptId      Int
+  attempt        AssessmentAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId     Int
+  question       Question          @relation(fields: [questionId], references: [id])
+  answerText     String?
+  selectedOption Int?
+  fileUrl        String?
+  answerHash     String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([attemptId, questionId])
+  @@map("student_answers")
 }
