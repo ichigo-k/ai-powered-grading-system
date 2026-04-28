@@ -352,6 +352,68 @@ export async function getStudentAttempts(studentId: number, assessmentId: number
   })
 }
 
+export type ScheduleItem = {
+  id: number
+  title: string
+  type: string
+  courseTitle: string
+  courseCode: string
+  startsAt: Date
+  endsAt: Date
+  durationMinutes: number | null
+  location: string | null
+  status: DerivedStatus
+}
+
+export async function getScheduleAssessments(studentId: number): Promise<ScheduleItem[]> {
+  const profile = await prisma.studentProfile.findUnique({
+    where: { id: studentId },
+    select: { classId: true },
+  })
+
+  if (!profile?.classId) return []
+
+  const classId = profile.classId
+  const now = new Date()
+
+  const rows = await prisma.assessmentClass.findMany({
+    where: { classId },
+    select: {
+      assessment: {
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          status: true,
+          startsAt: true,
+          endsAt: true,
+          durationMinutes: true,
+          location: true,
+          course: { select: { title: true, code: true } },
+        },
+      },
+    },
+  })
+
+  return rows
+    .map((r) => r.assessment)
+    .filter((a) => a.status === 'PUBLISHED')
+    .map((a) => ({
+      id: a.id,
+      title: a.title,
+      type: a.type,
+      courseTitle: a.course.title,
+      courseCode: a.course.code,
+      startsAt: a.startsAt,
+      endsAt: a.endsAt,
+      durationMinutes: a.durationMinutes,
+      location: a.location,
+      status: deriveStatus(a.startsAt, a.endsAt, now),
+    }))
+    .filter((a) => a.status === 'upcoming' || a.status === 'ongoing')
+    .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())
+}
+
 export async function getActiveAttempt(attemptId: number, studentId: number): Promise<ActiveAttempt | null> {
   const attempt = await prisma.assessmentAttempt.findUnique({
     where: { id: attemptId },
