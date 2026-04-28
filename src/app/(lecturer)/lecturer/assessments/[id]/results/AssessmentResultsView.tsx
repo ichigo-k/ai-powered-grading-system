@@ -1,9 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useMemo } from "react"
-import { ArrowLeft, ClipboardList, ArrowUpDown } from "lucide-react"
+import { useState, useMemo, useTransition } from "react"
+import { ArrowLeft, ClipboardList, ArrowUpDown, Send, Eye } from "lucide-react"
 import { format } from "date-fns"
+import { toast } from "sonner"
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -30,6 +31,8 @@ export interface AssessmentResultsData {
   totalQuestions: number
   startsAt: Date
   endsAt: Date
+  gradingStatus: "NOT_GRADED" | "GRADING" | "GRADED"
+  resultsReleased: boolean
   enrolledStudents: Array<{
     id: number
     name: string
@@ -83,6 +86,10 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
   const [sortKey, setSortKey] = useState<SortKey>("name")
   const [sortDir, setSortDir] = useState<SortDir>("asc")
   const [search, setSearch] = useState("")
+  const [isGrading, startGrading] = useTransition()
+  const [isReleasing, startReleasing] = useTransition()
+  const [gradingStatus, setGradingStatus] = useState(data.gradingStatus)
+  const [resultsReleased, setResultsReleased] = useState(data.resultsReleased)
 
   const submittedCount = data.submissions.length
   const gradedCount = data.submissions.filter((s) => s.status === "GRADED").length
@@ -141,7 +148,7 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
     cutout: "72%",
     plugins: {
       legend: { display: false },
-      tooltip: { callbacks: { label: (ctx: any) => ` ${ctx.parsed} students` } },
+      tooltip: { callbacks: { label: (ctx: { parsed: number }) => ` ${ctx.parsed} students` } },
     },
   }
 
@@ -183,6 +190,7 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
 
   const SortBtn = ({ col, label }: { col: SortKey; label: string }) => (
     <button
+      type="button"
       onClick={() => toggleSort(col)}
       className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-800 transition-colors"
     >
@@ -191,19 +199,128 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
     </button>
   )
 
+  // Trigger grading — sets status to GRADING, external grader picks it up
+  function handleStartGrading() {
+    startGrading(async () => {
+      const res = await fetch(`/api/lecturer/assessments/${data.id}/start-grading`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        toast.error("Failed to start grading. Please try again.")
+        return
+      }
+      setGradingStatus("GRADING")
+      toast.success("Assessment sent to grader. Results will appear as they come in.")
+    })
+  }
+
+  // Release results to students
+  function handleReleaseResults() {
+    startReleasing(async () => {
+      const res = await fetch(`/api/lecturer/assessments/${data.id}/release-results`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        toast.error(body.error === "Grading not complete"
+          ? "Grading is not complete yet."
+          : "Failed to release results.")
+        return
+      }
+      setResultsReleased(true)
+      toast.success("Results released — students can now see their scores.")
+    })
+  }
+
   return (
     <div className="mx-auto max-w-5xl pb-16 space-y-6">
 
       {/* Top nav */}
-      <Link
-        href={`/lecturer/assessments/${data.id}`}
-        className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-[#002388] transition-colors"
-      >
-        <ArrowLeft size={13} />
-        Back to Assessment
-      </Link>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <Link
+          href={`/lecturer/assessments/${data.id}`}
+          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-[#002388] transition-colors"
+        >
+          <ArrowLeft size={13} />
+          Back to Assessment
+        </Link>
 
-      {/* Hero card — no colour strip */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Grading progress pill */}
+          {gradingStatus !== "NOT_GRADED" && (
+            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+              gradingStatus === "GRADED"
+                ? "bg-green-50 border-green-200 text-green-700"
+                : "bg-amber-50 border-amber-200 text-amber-700"
+            }`}>
+              {gradingStatus === "GRADING" && (
+                <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+              )}
+              {gradingStatus === "GRADED" && (
+                <span className="h-2 w-2 rounded-full bg-green-500" />
+              )}
+              {gradingStatus === "GRADING" ? "Grading in progress…" : "Grading complete"}
+              <span className="font-normal opacity-70">
+                {gradedCount} / {submittedCount} graded
+              </span>
+            </div>
+          )}
+
+          {/* Grade Assessment button — only when not yet triggered */}
+          {gradingStatus === "NOT_GRADED" && submittedCount > 0 && (
+            <button
+              type="button"
+              onClick={handleStartGrading}
+              disabled={isGrading}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#002388] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0B4DBB] transition-colors disabled:opacity-50"
+            >
+              {isGrading ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Starting…
+                </>
+              ) : (
+                <>
+                  <Send size={14} />
+                  Grade Assessment
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Release Results button — only when grading done and not yet released */}
+          {gradingStatus === "GRADED" && !resultsReleased && (
+            <button
+              type="button"
+              onClick={handleReleaseResults}
+              disabled={isReleasing}
+              className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+            >
+              {isReleasing ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Releasing…
+                </>
+              ) : (
+                <>
+                  <Eye size={14} />
+                  Release Results
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Released badge */}
+          {resultsReleased && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700">
+              <span className="h-2 w-2 rounded-full bg-green-500" />
+              Results released to students
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Hero card */}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div className="p-6 space-y-2">
           <div className="flex flex-wrap items-center gap-2">

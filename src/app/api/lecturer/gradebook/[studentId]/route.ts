@@ -43,7 +43,6 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 
-  // Get all assessments by this lecturer that include a class this student belongs to
   const classId = student.studentProfile.class?.id
   if (!classId) {
     return NextResponse.json({
@@ -59,10 +58,12 @@ export async function GET(
     })
   }
 
+  // Get all assessments by this lecturer that include this student's class
   const assessments = await prisma.assessment.findMany({
     where: {
       lecturerId,
       classes: { some: { classId } },
+      status: { not: "DRAFT" },
     },
     select: {
       id: true,
@@ -77,6 +78,45 @@ export async function GET(
     orderBy: { startsAt: "desc" },
   })
 
+  if (assessments.length === 0) {
+    return NextResponse.json({
+      student: {
+        id: student.id,
+        name: student.name ?? "Unknown",
+        email: student.email,
+        program: student.studentProfile.program,
+        className: student.studentProfile.class?.name ?? null,
+        classLevel: student.studentProfile.class?.level ?? null,
+      },
+      assessments: [],
+    })
+  }
+
+  // Fetch the latest submitted/timed-out attempt per assessment for this student
+  const attempts = await prisma.assessmentAttempt.findMany({
+    where: {
+      studentId: sid,
+      assessmentId: { in: assessments.map((a) => a.id) },
+      status: { in: ["SUBMITTED", "TIMED_OUT"] },
+    },
+    orderBy: { submittedAt: "desc" },
+    select: {
+      assessmentId: true,
+      score: true,
+      grade: true,
+      status: true,
+      submittedAt: true,
+    },
+  })
+
+  // Latest attempt per assessment
+  const attemptMap = new Map<number, typeof attempts[number]>()
+  for (const attempt of attempts) {
+    if (!attemptMap.has(attempt.assessmentId)) {
+      attemptMap.set(attempt.assessmentId, attempt)
+    }
+  }
+
   return NextResponse.json({
     student: {
       id: student.id,
@@ -86,19 +126,25 @@ export async function GET(
       className: student.studentProfile.class?.name ?? null,
       classLevel: student.studentProfile.class?.level ?? null,
     },
-    assessments: assessments.map((a) => ({
-      id: a.id,
-      title: a.title,
-      type: a.type,
-      status: a.status,
-      totalMarks: a.totalMarks,
-      startsAt: a.startsAt,
-      endsAt: a.endsAt,
-      courseCode: a.course.code,
-      courseTitle: a.course.title,
-      // No submission model yet — placeholder
-      score: null,
-      submissionStatus: "NOT_SUBMITTED" as const,
-    })),
+    assessments: assessments.map((a) => {
+      const attempt = attemptMap.get(a.id)
+      let submissionStatus: "NOT_SUBMITTED" | "SUBMITTED" | "GRADED" = "NOT_SUBMITTED"
+      if (attempt) {
+        submissionStatus = attempt.grade ? "GRADED" : "SUBMITTED"
+      }
+      return {
+        id: a.id,
+        title: a.title,
+        type: a.type,
+        status: a.status,
+        totalMarks: a.totalMarks,
+        startsAt: a.startsAt,
+        endsAt: a.endsAt,
+        courseCode: a.course.code,
+        courseTitle: a.course.title,
+        score: attempt?.score ?? null,
+        submissionStatus,
+      }
+    }),
   })
 }

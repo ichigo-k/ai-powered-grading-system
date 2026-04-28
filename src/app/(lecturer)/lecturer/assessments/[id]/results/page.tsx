@@ -138,9 +138,43 @@ async function ResultsData({ id }: { id: string }) {
     totalQuestions: assessment.sections.reduce((acc, s) => acc + s.questions.length, 0),
     startsAt: assessment.startsAt,
     endsAt: assessment.endsAt,
+    gradingStatus: assessment.gradingStatus as "NOT_GRADED" | "GRADING" | "GRADED",
+    resultsReleased: assessment.resultsReleased,
     enrolledStudents,
     submissions: [],
   }
+
+  // Fetch all attempts for this assessment
+  const attempts = await prisma.assessmentAttempt.findMany({
+    where: {
+      assessmentId,
+      studentId: { in: enrolledStudents.map((s) => s.id) },
+      status: { in: ["SUBMITTED", "TIMED_OUT"] },
+    },
+    orderBy: { submittedAt: "desc" },
+    select: {
+      studentId: true,
+      score: true,
+      grade: true,
+      submittedAt: true,
+      status: true,
+    },
+  })
+
+  // Map attempts to submissions (latest per student)
+  const submissionMap = new Map<number, AssessmentResultsData["submissions"][number]>()
+  for (const attempt of attempts) {
+    if (!submissionMap.has(attempt.studentId)) {
+      submissionMap.set(attempt.studentId, {
+        studentId: attempt.studentId,
+        score: attempt.score,
+        submittedAt: attempt.submittedAt,
+        status: attempt.grade ? "GRADED" : "SUBMITTED",
+      })
+    }
+  }
+
+  data.submissions = Array.from(submissionMap.values())
 
   return <AssessmentResultsView data={data} />
 }

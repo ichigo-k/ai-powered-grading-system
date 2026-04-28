@@ -79,11 +79,13 @@ function SectionHeader({ section, index, isOpen, onToggle, onRemove }: SectionHe
   const qCount = section.questions.length
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onToggle}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
       className={cn(
-        "w-full flex items-center gap-4 px-5 py-4 text-left transition-colors",
+        "w-full flex items-center gap-4 px-5 py-4 text-left transition-colors cursor-pointer",
         isOpen ? "bg-white" : "bg-slate-50/60 hover:bg-slate-50"
       )}
     >
@@ -163,7 +165,7 @@ function SectionHeader({ section, index, isOpen, onToggle, onRemove }: SectionHe
           isOpen && "rotate-180"
         )}
       />
-    </button>
+    </div>
   )
 }
 
