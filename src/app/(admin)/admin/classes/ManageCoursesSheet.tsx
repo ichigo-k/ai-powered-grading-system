@@ -13,7 +13,7 @@ import {
 	SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import type { ClassWithDetails, CourseDetails } from "@/lib/admin-classes";
+import type { ClassWithDetails, CourseSimple } from "@/lib/admin-classes";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
@@ -26,7 +26,7 @@ export default function ManageCoursesSheet({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	cls: ClassWithDetails | null;
-	allCourses: CourseDetails[];
+	allCourses: CourseSimple[];
 }) {
 	const router = useRouter();
 	const [isPending, setIsPending] = useState(false);
@@ -37,7 +37,7 @@ export default function ManageCoursesSheet({
 			setIsPending(true);
 			fetch(`/api/admin/classes/${cls.id}/courses`)
 				.then((res) => res.json())
-				.then((data: CourseDetails[]) => {
+				.then((data: CourseSimple[]) => {
 					setSelectedCourseIds(new Set(data.map((c) => c.id)));
 				})
 				.finally(() => setIsPending(false));
@@ -124,3 +124,5 @@ export default function ManageCoursesSheet({
 		</Sheet>
 	);
 }
+
+

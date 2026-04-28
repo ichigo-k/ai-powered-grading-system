@@ -28,7 +28,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { ClassWithDetails, CourseDetails } from "@/lib/admin-classes";
+import type { ClassWithDetails, CourseSimple } from "@/lib/admin-classes";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,7 @@ export default function ClassesClient({
 	courses,
 }: {
 	initialClasses: ClassWithDetails[];
-	courses: CourseDetails[];
+	courses: CourseSimple[];
 }) {
 	const router = useRouter();
 	const [addEditOpen, setAddEditOpen] = useState(false);

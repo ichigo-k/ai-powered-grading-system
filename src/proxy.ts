@@ -43,7 +43,10 @@ export async function proxy(request: NextRequest) {
     )
   }
 
-  return NextResponse.next()
+  const response = NextResponse.next()
+  // Forward pathname so server layouts can read it (e.g. to hide nav on exam pages)
+  response.headers.set("x-pathname", pathname)
+  return response
 }
 
 export const config = {
