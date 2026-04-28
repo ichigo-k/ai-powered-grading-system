@@ -48,6 +48,8 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
   const router = useRouter()
   const [deleteTarget, setDeleteTarget] = useState<AssessmentListItem | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [closeTarget, setCloseTarget] = useState<AssessmentListItem | null>(null)
+  const [isClosing, setIsClosing] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState<number | null>(null)
 
   const handleDelete = async () => {
@@ -63,6 +65,29 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
       toast.error("Failed to delete assessment")
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  const handleClose = async () => {
+    if (!closeTarget) return
+    setIsClosing(true)
+    try {
+      const res = await fetch(`/api/lecturer/assessments/${closeTarget.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "CLOSED" }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Failed")
+      }
+      toast.success("Assessment closed")
+      setCloseTarget(null)
+      router.refresh()
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to close assessment")
+    } finally {
+      setIsClosing(false)
     }
   }
 
@@ -179,7 +204,7 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
                 size="sm"
                 variant="outline"
                 disabled={isLoading}
-                onClick={() => handleStatusTransition(a.id, "CLOSED")}
+                onClick={() => setCloseTarget(a)}
                 className="h-7 px-2 text-[10px] font-medium text-slate-600 border-slate-200 hover:bg-slate-50 rounded-lg"
               >
                 <XCircle className="h-3 w-3 mr-1" />
@@ -238,6 +263,16 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
           New Assessment
         </button>
       </div>
+
+      <ConfirmModal
+        open={!!closeTarget}
+        title="Close Assessment?"
+        description={`"${closeTarget?.title}" is currently live. Closing it will end the assessment for all students immediately. This cannot be undone.`}
+        confirmText="Close Assessment"
+        isLoading={isClosing}
+        onConfirm={handleClose}
+        onCancel={() => setCloseTarget(null)}
+      />
 
       <ConfirmModal
         open={!!deleteTarget}
