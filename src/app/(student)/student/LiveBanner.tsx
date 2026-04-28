@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { X, ArrowRight } from "lucide-react";
 
 export default function LiveBanner({ items }: { items: { id: number; title: string; courseTitle: string }[] }) {
 	const [dismissed, setDismissed] = useState(false);
+	const router = useRouter();
+
 	if (dismissed || items.length === 0) return null;
 
 	return (
@@ -20,6 +23,7 @@ export default function LiveBanner({ items }: { items: { id: number; title: stri
 				{items.map(a => (
 					<button
 						key={a.id}
+						onClick={() => router.push(`/student/assessments/${a.id}`)}
 						className="flex items-center gap-1.5 rounded-full border border-green-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-green-50 transition-colors"
 					>
 						<span className="font-semibold text-slate-900">{a.courseTitle}</span>

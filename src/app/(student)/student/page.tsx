@@ -10,15 +10,9 @@ import {
 	AlertCircle,
 	ArrowRight,
 	Award,
-	BellDot,
 	BookOpen,
 } from "lucide-react";
 import LiveBanner from "./LiveBanner";
-
-const studentAlerts = [
-	{ id: 1, title: "Venue updated", detail: "Check with your lecturer for any venue changes." },
-	{ id: 2, title: "Result published", detail: "New assessment results may be available." },
-];
 
 const typeStyles: Record<string, { bg: string; text: string }> = {
 	EXAM:       { bg: "#FEE2E2", text: "#DC2626" },
@@ -127,90 +121,60 @@ export default async function StudentDashboardPage() {
 						</section>
 
 						<section className="flex flex-col gap-4">
-							<div className="px-1">
+							<div className="flex items-center justify-between px-1">
 								<h2 className="flex items-center gap-2 text-lg font-medium text-slate-900">
-									<BellDot className="text-[#002388]" size={20} />
-									Important Alerts
+									<Award className="text-[#002388]" size={20} />
+									Recent Results
 								</h2>
+								<Link
+									href="/student/assessments"
+									className="flex items-center gap-1 text-sm font-medium text-[#002388] hover:text-[#0B4DBB] transition-colors"
+								>
+									View all
+									<ArrowRight size={14} />
+								</Link>
 							</div>
-							<div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-								{studentAlerts.map((alert, i) => (
-									<div
-										key={alert.id}
-										className={`flex gap-3 p-4 transition-colors hover:bg-slate-50 ${i !== 0 ? "border-t border-slate-200" : ""}`}
-									>
-										<div className="mt-0.5 flex-shrink-0 text-amber-500">
-											<AlertCircle size={18} />
-										</div>
-										<div>
-											<h3 className="font-medium text-slate-800 text-sm">{alert.title}</h3>
-											<p className="mt-0.5 text-sm text-slate-500">{alert.detail}</p>
-										</div>
-									</div>
-								))}
+							<div className="rounded-xl overflow-hidden bg-white border border-slate-200">
+								{recentResults.length === 0 ? (
+									<p className="p-6 text-sm text-slate-400 text-center">No results yet.</p>
+								) : (
+									recentResults.map((result, i) => {
+										const type = result.type.toUpperCase() as keyof typeof typeStyles;
+										const style = typeStyles[type] ?? { bg: "#F1F5F9", text: "#475569" };
+										const score = result.score ?? 0;
+										const barColor = score >= 85 ? "#22c55e" : score >= 60 ? "#3b82f6" : "#f59e0b";
+										return (
+											<div
+												key={result.id}
+												className={`flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between transition-colors hover:bg-slate-50 ${i !== 0 ? "border-t border-slate-200" : ""}`}
+											>
+												<div className="min-w-0 flex-1">
+													<p className="font-semibold text-slate-900 truncate text-sm">{result.title}</p>
+													<p className="text-xs text-slate-400 mt-0.5 truncate">{result.courseTitle}</p>
+												</div>
+												<div className="flex items-center gap-4 shrink-0">
+													<span
+														className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-center"
+														style={{ background: style.bg, color: style.text }}
+													>
+														{result.type}
+													</span>
+													<div className="flex items-center gap-2 w-28">
+														<div className="h-1.5 flex-1 rounded-full bg-slate-100">
+															<div className="h-1.5 rounded-full" style={{ width: `${Math.min(score, 100)}%`, background: barColor }} />
+														</div>
+														<p className="text-sm font-semibold text-slate-800 whitespace-nowrap w-12 text-right">
+															{result.score != null ? `${result.score}%` : "—"}
+														</p>
+													</div>
+												</div>
+											</div>
+										);
+									})
+								)}
 							</div>
 						</section>
 					</div>
-
-					<section className="flex flex-col gap-4">
-						<div className="flex items-center justify-between px-1">
-							<h2 className="flex items-center gap-2 text-lg font-medium text-slate-900">
-								<Award className="text-[#002388]" size={20} />
-								Recent Results
-							</h2>
-							<Link
-								href="/student/assessments"
-								className="flex items-center gap-1 text-sm font-medium text-[#002388] hover:text-[#0B4DBB] transition-colors"
-							>
-								View all
-								<ArrowRight size={14} />
-							</Link>
-						</div>
-
-						<div className="rounded-xl overflow-hidden bg-white border border-slate-200">
-							{recentResults.length === 0 ? (
-								<p className="p-6 text-sm text-slate-400 text-center">No results yet.</p>
-							) : (
-								recentResults.map((result, i) => {
-									const type = result.type.toLowerCase() as keyof typeof typeStyles;
-									const style = typeStyles[type] ?? { bg: "#F1F5F9", text: "#475569" };
-									const score = result.score ?? 0;
-									const barColor = score >= 85 ? "#22c55e" : score >= 60 ? "#3b82f6" : "#f59e0b";
-									return (
-										<div
-											key={result.id}
-											className={`flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between transition-colors hover:bg-slate-50 ${i !== 0 ? "border-t border-slate-200" : ""}`}
-										>
-											<div className="min-w-0 flex-1">
-												<p className="font-semibold text-slate-900 truncate">{result.title}</p>
-												<p className="text-xs text-slate-400 mt-0.5 truncate">{result.courseTitle}</p>
-											</div>
-											<div className="flex items-center gap-6 shrink-0">
-												<span className="text-sm text-slate-400">
-													{result.endsAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-												</span>
-												<span
-													className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider w-14 text-center"
-													style={{ background: style.bg, color: style.text }}
-												>
-													{result.type}
-												</span>
-												<div className="flex items-center gap-2 w-32">
-													<div className="h-1.5 flex-1 rounded-full bg-slate-100">
-														<div className="h-1.5 rounded-full" style={{ width: `${Math.min(score, 100)}%`, background: barColor }} />
-													</div>
-													<p className="text-sm font-semibold text-slate-800 whitespace-nowrap w-14 text-right">
-														{result.score != null ? `${result.score}%` : "—"}
-														{result.grade ? ` · ${result.grade}` : ""}
-													</p>
-												</div>
-											</div>
-										</div>
-									);
-								})
-							)}
-						</div>
-					</section>
 				</>
 			)}
 		</div>
