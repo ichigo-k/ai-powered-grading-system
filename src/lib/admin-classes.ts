@@ -38,7 +38,14 @@ export async function getClasses(): Promise<ClassWithDetails[]> {
   })
 }
 
-export async function getCourses(): Promise<CourseDetails[]> {
+export type CourseSimple = {
+  id: number
+  code: string
+  title: string
+  credits: number
+}
+
+export async function getCourses(): Promise<CourseSimple[]> {
   return prisma.course.findMany({
     orderBy: { code: "asc" }
   })
