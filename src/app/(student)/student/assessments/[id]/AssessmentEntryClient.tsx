@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
+import { createPortal } from "react-dom"
 import {
   Lock,
   PlayCircle,
@@ -15,6 +16,7 @@ import {
   X,
 } from "lucide-react"
 import { createOrResumeAttempt } from "@/lib/assessment-actions"
+import { MAX_VIOLATIONS } from "@/lib/violation-tracker"
 import PasswordGateModal from "@/components/student/PasswordGateModal"
 
 interface AssessmentEntryClientProps {
@@ -41,142 +43,111 @@ function RulesModal({ assessmentType, durationMinutes, onAccept, onCancel }: Rul
   const [accepted, setAccepted] = useState(false)
   const isSecured = assessmentType === "EXAM" || assessmentType === "QUIZ"
 
-  const rules = [
+  const redRules = [
     ...(isSecured
       ? [
-          {
-            icon: Monitor,
-            title: "Fullscreen required",
-            desc: "The assessment will run in fullscreen mode. Exiting fullscreen will be flagged.",
-            color: "text-[#1d4ed8]",
-            bg: "bg-[#eff6ff]",
-            border: "border-[#bfdbfe]",
-          },
-          {
-            icon: EyeOff,
-            title: "No tab switching",
-            desc: "Switching tabs or windows will be logged and reported to your lecturer.",
-            color: "text-[#d97706]",
-            bg: "bg-[#fffbeb]",
-            border: "border-[#fde68a]",
-          },
-          {
-            icon: ShieldCheck,
-            title: "Copy & paste disabled",
-            desc: "Copying, pasting, and right-clicking are disabled during the assessment.",
-            color: "text-[#6d28d9]",
-            bg: "bg-[#f5f3ff]",
-            border: "border-[#ddd6fe]",
-          },
+          { icon: Monitor, title: "Fullscreen required", desc: `Exiting fullscreen is logged. ${MAX_VIOLATIONS} violations will auto-submit your attempt.` },
+          { icon: EyeOff, title: "No tab switching", desc: `Switching tabs or windows is logged. ${MAX_VIOLATIONS} total violations across any infraction will auto-submit your attempt.` },
         ]
       : []),
-    ...(durationMinutes
-      ? [
-          {
-            icon: Clock,
-            title: `${durationMinutes}-minute time limit`,
-            desc: "The assessment will auto-submit when the timer reaches zero.",
-            color: "text-[#dc2626]",
-            bg: "bg-[#fef2f2]",
-            border: "border-[#fecaca]",
-          },
-        ]
-      : []),
-    {
-      icon: AlertTriangle,
-      title: "No going back",
-      desc: "Once submitted, you cannot change your answers. Review carefully before submitting.",
-      color: "text-[#d97706]",
-      bg: "bg-[#fffbeb]",
-      border: "border-[#fde68a]",
-    },
-    {
-      icon: CheckCircle2,
-      title: "Auto-save enabled",
-      desc: "Your answers are saved automatically as you type. You won't lose progress.",
-      color: "text-[#16a34a]",
-      bg: "bg-[#f0fdf4]",
-      border: "border-[#bbf7d0]",
-    },
+    ...(durationMinutes ? [{ icon: Clock, title: `${durationMinutes}-minute time limit`, desc: "The assessment auto-submits when the timer reaches zero." }] : []),
+    { icon: AlertTriangle, title: "No going back", desc: "Once submitted, you cannot change your answers." },
+  ]
+
+  const neutralRules = [
+    ...(isSecured ? [{ icon: ShieldCheck, title: "Copy & paste disabled", desc: "Copying, pasting, and right-clicking are disabled during the assessment." }] : []),
+    { icon: CheckCircle2, title: "Auto-save enabled", desc: "Your answers are saved automatically as you type." },
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
-      <div className="relative w-full max-w-md rounded-xl bg-white border border-[#e5e7eb] shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-[#e5e7eb]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#eff6ff]">
-                <ShieldCheck size={17} className="text-[#1d4ed8]" />
+    typeof window !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
+            <div className="relative w-full max-w-md rounded-lg bg-white border border-[#e5e7eb] shadow-2xl overflow-hidden">
+
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-[#e5e7eb] flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[#f3f4f6]">
+                    <ShieldCheck size={16} className="text-[#111827]" />
+                  </div>
+                  <div>
+                    <h2 className="text-[14px] font-semibold text-[#111827]">Before you begin</h2>
+                    <p className="text-[11px] text-[#9ca3af] mt-0.5">Read carefully before starting</p>
+                  </div>
+                </div>
+                <button type="button" onClick={onCancel}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-[#9ca3af] hover:text-[#374151] hover:bg-[#f3f4f6] transition-colors" aria-label="Close">
+                  <X size={14} />
+                </button>
               </div>
-              <div>
-                <h2 className="text-[15px] font-semibold text-[#111827]">Before you begin</h2>
-                <p className="text-xs text-[#6b7280] mt-0.5">Please read the rules carefully</p>
+
+              <div className="px-6 py-4 space-y-4 max-h-[52vh] overflow-y-auto">
+
+                {/* ── Critical rules (red) ── */}
+                {redRules.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-[#dc2626] mb-2">Important</p>
+                    <div className="border border-[#fecaca] rounded-md overflow-hidden divide-y divide-[#fecaca]">
+                      {redRules.map((rule, i) => (
+                        <div key={i} className="flex items-start gap-3 px-3.5 py-3 bg-white">
+                          <rule.icon size={14} className="mt-0.5 shrink-0 text-[#dc2626]" />
+                          <div>
+                            <p className="text-[12px] font-semibold text-[#dc2626]">{rule.title}</p>
+                            <p className="text-[11px] text-[#6b7280] mt-0.5 leading-relaxed">{rule.desc}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Neutral rules ── */}
+                {neutralRules.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-2">General</p>
+                    <div className="border border-[#e5e7eb] rounded-md overflow-hidden divide-y divide-[#e5e7eb]">
+                      {neutralRules.map((rule, i) => (
+                        <div key={i} className="flex items-start gap-3 px-3.5 py-3 bg-white">
+                          <rule.icon size={14} className="mt-0.5 shrink-0 text-[#9ca3af]" />
+                          <div>
+                            <p className="text-[12px] font-semibold text-[#374151]">{rule.title}</p>
+                            <p className="text-[11px] text-[#6b7280] mt-0.5 leading-relaxed">{rule.desc}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-[#e5e7eb] px-6 py-4 space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <div className="mt-0.5 shrink-0">
+                    <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="sr-only" />
+                    <div className={`rounded border-2 flex items-center justify-center transition-colors ${
+                      accepted ? "border-[#002388] bg-[#002388]" : "border-[#d1d5db] bg-white group-hover:border-[#002388]"
+                    }`} style={{ height: "17px", width: "17px" }}>
+                      {accepted && <CheckCircle2 size={10} className="text-white" />}
+                    </div>
+                  </div>
+                  <span className="text-[12px] text-[#374151] leading-relaxed">
+                    I have read and understood the rules. I agree to take this assessment honestly.
+                  </span>
+                </label>
+
+                <button type="button" onClick={onAccept} disabled={!accepted}
+                  className="flex w-full items-center justify-center gap-2 rounded-md bg-[#002388] px-5 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#0B4DBB] disabled:opacity-30 disabled:cursor-not-allowed">
+                  <PlayCircle size={14} />
+                  Start Assessment
+                </button>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-[#9ca3af] hover:text-[#374151] hover:bg-[#f3f4f6] transition-colors"
-              aria-label="Close"
-            >
-              <X size={15} />
-            </button>
-          </div>
-        </div>
-
-        {/* Rules list */}
-        <div className="px-6 py-4 space-y-2 max-h-[50vh] overflow-y-auto">
-          {rules.map((rule, i) => (
-            <div key={i} className={`flex items-start gap-3 rounded-lg border px-3.5 py-3 ${rule.bg} ${rule.border}`}>
-              <div className={`mt-0.5 shrink-0 ${rule.color}`}>
-                <rule.icon size={15} />
-              </div>
-              <div>
-                <p className={`text-[13px] font-semibold ${rule.color}`}>{rule.title}</p>
-                <p className="text-xs text-[#4b5563] mt-0.5 leading-relaxed">{rule.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Footer */}
-        <div className="border-t border-[#e5e7eb] px-6 py-4 space-y-3 bg-[#f9fafb]">
-          <label className="flex items-start gap-3 cursor-pointer group">
-            <div className="relative mt-0.5 shrink-0">
-              <input
-                type="checkbox"
-                checked={accepted}
-                onChange={(e) => setAccepted(e.target.checked)}
-                className="sr-only"
-              />
-              <div
-                className={`h-4.5 w-4.5 rounded border-2 flex items-center justify-center transition-colors ${
-                  accepted ? "border-[#002388] bg-[#002388]" : "border-[#d1d5db] bg-white group-hover:border-[#002388]"
-                }`}
-                style={{ height: "18px", width: "18px" }}
-              >
-                {accepted && <CheckCircle2 size={11} className="text-white" />}
-              </div>
-            </div>
-            <span className="text-[13px] text-[#374151] leading-relaxed">
-              I have read and understood the rules. I agree to take this assessment honestly.
-            </span>
-          </label>
-
-          <button
-            type="button"
-            onClick={onAccept}
-            disabled={!accepted}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#002388] px-5 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#0B4DBB] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <PlayCircle size={15} />
-            Start Assessment
-          </button>
-        </div>
-      </div>
-    </div>
+          </div>,
+          document.body
+        )
+      : null
   )
 }
 
