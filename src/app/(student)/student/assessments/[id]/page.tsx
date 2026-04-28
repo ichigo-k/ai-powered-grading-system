@@ -1,0 +1,312 @@
+import { notFound, redirect } from "next/navigation"
+import Link from "next/link"
+import {
+  Calendar,
+  Clock,
+  BookOpen,
+  Award,
+  ChevronLeft,
+  MapPin,
+  Layers,
+  CheckCircle2,
+  Lock,
+  AlertCircle,
+} from "lucide-react"
+import { getSession } from "@/lib/session"
+import { prisma } from "@/lib/prisma"
+import { getAssessmentWithQuestions, getStudentAttempts } from "@/lib/student-queries"
+import AssessmentEntryClient from "./AssessmentEntryClient"
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatDate(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+const typeBadgeStyles: Record<string, { bg: string; text: string }> = {
+  EXAM:       { bg: "#FEE2E2", text: "#991B1B" },
+  QUIZ:       { bg: "#FEF3C7", text: "#92400E" },
+  ASSIGNMENT: { bg: "#DBEAFE", text: "#1E40AF" },
+}
+
+const sectionTypeBadge: Record<string, { bg: string; text: string }> = {
+  OBJECTIVE:  { bg: "#F0FDF4", text: "#166534" },
+  SUBJECTIVE: { bg: "#F5F3FF", text: "#5B21B6" },
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default async function AssessmentDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const assessmentId = Number(id)
+  if (Number.isNaN(assessmentId)) notFound()
+
+  // Resolve student identity
+  const session = await getSession()
+  const email = session?.user?.email
+  const user = email
+    ? await prisma.user.findUnique({ where: { email }, select: { id: true } })
+    : null
+  const studentId = user?.id ?? null
+
+  // Fetch data
+  const assessment = await getAssessmentWithQuestions(assessmentId)
+  if (!assessment) notFound()
+
+  const attempts = studentId ? await getStudentAttempts(studentId, assessmentId) : []
+
+  // If there's an active IN_PROGRESS attempt, redirect straight to it
+  const activeAttempt = attempts.find((a) => a.status === "IN_PROGRESS") ?? null
+  if (activeAttempt) {
+    redirect(`/student/assessments/${assessmentId}/attempt?attemptId=${activeAttempt.id}`)
+  }
+
+  const now = new Date()
+  const isUpcoming = now < assessment.startsAt
+  const isEnded = now > assessment.endsAt
+  const isLocked = attempts.length >= assessment.maxAttempts
+  const hasSubmitted = attempts.some((a) => a.status === "SUBMITTED" || a.status === "TIMED_OUT")
+  const latestSubmitted = attempts
+    .filter((a) => a.status === "SUBMITTED" || a.status === "TIMED_OUT")
+    .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0))[0] ?? null
+
+  const typeStyle = typeBadgeStyles[assessment.type] ?? { bg: "#F1F5F9", text: "#475569" }
+
+  const totalQuestions = assessment.sections.reduce(
+    (sum, s) => sum + s.questions.length,
+    0,
+  )
+
+  // Determine what to show in the entry area
+  const canStart = !isLocked && !isUpcoming && !isEnded && !hasSubmitted
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-6 pb-12">
+      {/* Back nav */}
+      <Link
+        href="/student/assessments"
+        className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
+      >
+        <ChevronLeft size={16} />
+        All Assessments
+      </Link>
+
+      {/* Hero card */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className="rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider"
+            style={{ background: typeStyle.bg, color: typeStyle.text }}
+          >
+            {assessment.type}
+          </span>
+          {assessment.passwordProtected && (
+            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 uppercase tracking-wider">
+              Password Protected
+            </span>
+          )}
+          {isUpcoming && (
+            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              Not Yet Open
+            </span>
+          )}
+          {isEnded && (
+            <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-600 uppercase tracking-wider">
+              Closed
+            </span>
+          )}
+        </div>
+
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">{assessment.title}</h1>
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
+            <BookOpen size={14} />
+            {assessment.courseTitle}
+            <span className="text-slate-300">·</span>
+            <span className="font-mono text-xs text-slate-400">{assessment.courseCode}</span>
+          </p>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 border-t border-slate-100 pt-4">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-slate-400">Total Marks</span>
+            <span className="text-lg font-semibold text-slate-800 flex items-center gap-1">
+              <Award size={14} className="text-slate-400" />
+              {assessment.totalMarks}
+            </span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-slate-400">Duration</span>
+            <span className="text-lg font-semibold text-slate-800 flex items-center gap-1">
+              <Clock size={14} className="text-slate-400" />
+              {assessment.durationMinutes ? `${assessment.durationMinutes} min` : "Untimed"}
+            </span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-slate-400">Attempts</span>
+            <span className="text-lg font-semibold text-slate-800">
+              {attempts.length} / {assessment.maxAttempts}
+            </span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-slate-400">Questions</span>
+            <span className="text-lg font-semibold text-slate-800">{totalQuestions}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Dates & location */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Schedule</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex items-start gap-2.5">
+            <Calendar size={15} className="mt-0.5 shrink-0 text-slate-400" />
+            <div>
+              <p className="text-xs text-slate-400">Opens</p>
+              <p className="text-sm font-medium text-slate-700">{formatDate(assessment.startsAt)}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2.5">
+            <Calendar size={15} className="mt-0.5 shrink-0 text-slate-400" />
+            <div>
+              <p className="text-xs text-slate-400">Closes</p>
+              <p className="text-sm font-medium text-slate-700">{formatDate(assessment.endsAt)}</p>
+            </div>
+          </div>
+          {assessment.isLocationBound && assessment.location && (
+            <div className="flex items-start gap-2.5 sm:col-span-2">
+              <MapPin size={15} className="mt-0.5 shrink-0 text-slate-400" />
+              <div>
+                <p className="text-xs text-slate-400">Location</p>
+                <p className="text-sm font-medium text-slate-700">{assessment.location}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Sections */}
+      {assessment.sections.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3.5">
+            <Layers size={14} className="text-slate-400" />
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Sections</h2>
+          </div>
+          <ul className="divide-y divide-slate-100">
+            {assessment.sections.map((section) => {
+              const badge = sectionTypeBadge[section.type] ?? { bg: "#F1F5F9", text: "#475569" }
+              return (
+                <li key={section.id} className="flex items-center justify-between gap-4 px-5 py-3.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className="shrink-0 rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                      style={{ background: badge.bg, color: badge.text }}
+                    >
+                      {section.type}
+                    </span>
+                    <span className="truncate text-sm font-medium text-slate-700">{section.name}</span>
+                  </div>
+                  <span className="shrink-0 text-xs text-slate-400">
+                    {section.questions.length} question{section.questions.length !== 1 ? "s" : ""}
+                    {section.requiredQuestionsCount != null &&
+                      section.requiredQuestionsCount < section.questions.length
+                      ? ` (answer ${section.requiredQuestionsCount})`
+                      : ""}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+
+      {/* Entry / status area */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+        {!studentId ? (
+          <p className="text-sm text-slate-500">Please sign in to start this assessment.</p>
+        ) : hasSubmitted && latestSubmitted ? (
+          /* Submitted state — block re-entry */
+          <div className="flex flex-col items-center gap-3 py-4 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
+              <CheckCircle2 size={28} className="text-green-600" />
+            </div>
+            <div>
+              <p className="text-base font-semibold text-slate-800">Assessment Submitted</p>
+              <p className="mt-1 text-sm text-slate-500">
+                You submitted this assessment on{" "}
+                {latestSubmitted.submittedAt
+                  ? formatDate(latestSubmitted.submittedAt)
+                  : "—"}
+                .
+              </p>
+              {latestSubmitted.status === "TIMED_OUT" && (
+                <p className="mt-1 text-xs text-amber-600 font-medium">Auto-submitted due to time expiry.</p>
+              )}
+            </div>
+            <Link
+              href="/student/assessments"
+              className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors"
+            >
+              <ChevronLeft size={14} />
+              Back to Assessments
+            </Link>
+          </div>
+        ) : isUpcoming ? (
+          <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 px-5 py-4">
+            <AlertCircle size={18} className="shrink-0 text-blue-500" />
+            <div>
+              <p className="font-medium text-blue-800">Assessment not yet open</p>
+              <p className="text-sm text-blue-600">
+                This assessment opens on {formatDate(assessment.startsAt)}.
+              </p>
+            </div>
+          </div>
+        ) : isEnded ? (
+          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-5 py-4">
+            <Lock size={18} className="shrink-0 text-slate-400" />
+            <div>
+              <p className="font-medium text-slate-700">Assessment closed</p>
+              <p className="text-sm text-slate-500">
+                This assessment closed on {formatDate(assessment.endsAt)}.
+              </p>
+            </div>
+          </div>
+        ) : isLocked ? (
+          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-5 py-4">
+            <Lock size={18} className="shrink-0 text-slate-400" />
+            <div>
+              <p className="font-medium text-slate-700">Maximum attempts reached</p>
+              <p className="text-sm text-slate-500">You have used all available attempts for this assessment.</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Start</h2>
+            <AssessmentEntryClient
+              assessmentId={assessmentId}
+              passwordProtected={assessment.passwordProtected}
+              isLocked={isLocked}
+              activeAttemptId={null}
+              assessmentType={assessment.type}
+              durationMinutes={assessment.durationMinutes ?? null}
+              startsAt={assessment.startsAt.toISOString()}
+              endsAt={assessment.endsAt.toISOString()}
+            />
+          </>
+        )}
+      </div>
+    </div>
+  )
+}

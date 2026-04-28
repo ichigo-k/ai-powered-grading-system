@@ -2,10 +2,48 @@
 
 import { useMemo, useRef, useEffect, useState } from "react";
 import { CalendarDays, Clock, MapPin } from "lucide-react";
-import {
-	getRelativeLabel,
-	studentAssessments,
-} from "@/lib/student-assessments";
+
+// ─── Static helpers (formerly from student-assessments.ts) ───────────────────
+
+type AssessmentStatus = "upcoming" | "ongoing" | "completed" | "missed";
+type AssessmentType = "exam" | "quiz" | "test";
+
+interface StudentAssessment {
+	id: number;
+	title: string;
+	course: string;
+	courseCode: string;
+	courseColor: string;
+	type: AssessmentType;
+	status: AssessmentStatus;
+	date: string;
+	time: string;
+	duration: string;
+	venue: string;
+	note?: string;
+	score?: number;
+	total?: number;
+	grade?: string;
+}
+
+function getRelativeLabel(date: string) {
+	const today = new Date("2026-04-22T00:00:00");
+	const target = new Date(`${date}T00:00:00`);
+	const diff = Math.round((target.getTime() - today.getTime()) / 86400000);
+	if (diff === 0) return "Today";
+	if (diff === 1) return "Tomorrow";
+	if (diff > 1) return `In ${diff} days`;
+	if (diff === -1) return "Yesterday";
+	return `${Math.abs(diff)} days ago`;
+}
+
+const studentAssessments: StudentAssessment[] = [
+	{ id: 1, title: "Mid Semester Examination", course: "Introduction to Computing", courseCode: "CS101", courseColor: "#1967D2", type: "exam", status: "upcoming", date: "2026-04-25", time: "09:00 AM", duration: "2 hrs", venue: "Hall A" },
+	{ id: 2, title: "Quiz 3", course: "Calculus I", courseCode: "MATH201", courseColor: "#7C3AED", type: "quiz", status: "upcoming", date: "2026-04-28", time: "02:00 PM", duration: "45 min", venue: "Room 204" },
+	{ id: 3, title: "Database Systems Timed Test", course: "Database Systems", courseCode: "CS315", courseColor: "#0F766E", type: "test", status: "ongoing", date: "2026-04-22", time: "11:30 AM", duration: "1 hr", venue: "Lab 3" },
+	{ id: 4, title: "Practical Test", course: "Data Structures", courseCode: "CS301", courseColor: "#0891B2", type: "test", status: "upcoming", date: "2026-05-03", time: "10:00 AM", duration: "1.5 hrs", venue: "Lab 2" },
+	{ id: 5, title: "End of Semester Examination", course: "Technical Writing", courseCode: "ENG101", courseColor: "#059669", type: "exam", status: "upcoming", date: "2026-05-10", time: "08:00 AM", duration: "2 hrs", venue: "Hall B" },
+];
 
 const TODAY = "2026-04-22";
 

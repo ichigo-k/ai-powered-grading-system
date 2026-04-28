@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { X, ArrowRight } from "lucide-react";
-import type { StudentAssessment } from "@/lib/student-assessments";
 
-export default function LiveBanner({ items }: { items: StudentAssessment[] }) {
+export default function LiveBanner({ items }: { items: { id: number; title: string; courseTitle: string }[] }) {
 	const [dismissed, setDismissed] = useState(false);
 	if (dismissed || items.length === 0) return null;
 
@@ -23,7 +22,7 @@ export default function LiveBanner({ items }: { items: StudentAssessment[] }) {
 						key={a.id}
 						className="flex items-center gap-1.5 rounded-full border border-green-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-green-50 transition-colors"
 					>
-						<span className="font-semibold text-slate-900">{a.courseCode}</span>
+						<span className="font-semibold text-slate-900">{a.courseTitle}</span>
 						<span className="text-slate-400">·</span>
 						<span className="truncate max-w-[140px]">{a.title}</span>
 						<ArrowRight size={10} className="text-slate-400 shrink-0" />
