@@ -54,17 +54,91 @@ function parseOptions(raw: unknown): string[] {
   return [];
 }
 
-// ─── Code editor ─────────────────────────────────────────────────────────────
-// The textarea and the highlighted pre share identical font metrics so the
-// invisible caret sits exactly on top of the visible highlighted text.
+// ─── PDF upload — handles fullscreen exit/re-enter around native file picker ──
+
+function PdfUpload({
+  onFile,
+  error,
+  locked,
+}: {
+  onFile: (file: File) => void
+  error: string | null
+  locked: boolean
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [fileName, setFileName] = useState<string | null>(null)
+
+  function handleClick() {
+    if (locked) return
+    // If in fullscreen, exit first so the OS file picker can open,
+    // then re-enter after the picker closes (via the change/cancel event).
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {}).finally(() => {
+        inputRef.current?.click()
+      })
+    } else {
+      inputRef.current?.click()
+    }
+  }
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    // Re-enter fullscreen regardless of whether a file was chosen
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {})
+    }
+    if (!file) return
+    setFileName(file.name)
+    onFile(file)
+    e.target.value = ""
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[13px] font-medium text-[#374151] flex items-center gap-2" style={{ fontFamily: FONT_SANS }}>
+        <FileText size={14} className="text-[#9ca3af]" />
+        Upload your answer as a PDF (max 10 MB)
+      </p>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".pdf"
+        className="sr-only"
+        onChange={handleChange}
+        tabIndex={-1}
+      />
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={locked}
+        className="inline-flex items-center gap-2 rounded-md border border-[#e5e7eb] bg-[#f9fafb] px-4 py-2.5 text-[13px] font-medium text-[#374151] hover:bg-[#f3f4f6] transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-fit"
+        style={{ fontFamily: FONT_SANS }}
+      >
+        <FileText size={14} className="text-[#6b7280]" />
+        {fileName ? "Change file" : "Choose file"}
+      </button>
+      {fileName && (
+        <p className="text-[12px] text-[#6b7280] flex items-center gap-1.5" style={{ fontFamily: FONT_SANS }}>
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#16a34a]" />
+          {fileName}
+        </p>
+      )}
+      {error && <p role="alert" className="text-xs text-[#dc2626]" style={{ fontFamily: FONT_SANS }}>{error}</p>}
+    </div>
+  )
+}
+
+// Light theme colours — GitHub-style
+const EDITOR_BG        = "#f6f8fa";   // light gray background
+const EDITOR_GUTTER_BG = "#eef0f3";   // slightly darker gutter
+const EDITOR_GUTTER_FG = "#8c959f";   // line number colour
+const EDITOR_BORDER    = "#d0d7de";   // border
+const EDITOR_CARET     = "#24292f";   // dark caret
 
 function CodeInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const MIN_LINES = 14;
   const lineCount = Math.max(MIN_LINES, value.split("\n").length + 1);
-  const editorHeight = PAD_V * 2 + lineCount * LINE_HEIGHT;
 
-  // Append a trailing space so the highlight layer always has the same height
-  // as the textarea (avoids the last line being clipped).
   const displayCode = value ? (value.endsWith("\n") ? value + " " : value) : " ";
 
   const sharedStyle: React.CSSProperties = {
@@ -79,69 +153,37 @@ function CodeInput({ value, onChange }: { value: string; onChange: (v: string) =
     tabSize: 2,
   };
 
+  const lineNumberStyle: React.CSSProperties = {
+    display: "inline-block",
+    width: `${GUTTER_W - PAD_V - 8}px`,
+    marginLeft: `-${GUTTER_W - PAD_V}px`,
+    marginRight: "8px",
+    textAlign: "right",
+    color: EDITOR_GUTTER_FG,
+    userSelect: "none",
+    fontVariantNumeric: "tabular-nums",
+  };
+
   return (
     <div
-      className="relative rounded-lg overflow-hidden"
-      style={{ background: "#1a1a2e", height: `${editorHeight}px` }}
+      className="relative rounded-lg"
+      style={{
+        background: EDITOR_BG,
+        border: `1px solid ${EDITOR_BORDER}`,
+        backgroundImage: `linear-gradient(to right, ${EDITOR_GUTTER_BG} ${GUTTER_W}px, ${EDITOR_BG} ${GUTTER_W}px)`,
+      }}
     >
-      {/* ── Highlighted layer (pointer-events: none, sits behind) ── */}
-      <Highlight theme={themes.vsDark} code={displayCode} language="python">
+      {/* ── Colour layer — sits on top of textarea, pointer-events none ── */}
+      <Highlight theme={themes.github} code={displayCode} language="python">
         {({ tokens, getLineProps, getTokenProps }) => (
           <pre
             aria-hidden="true"
-            className="absolute inset-0 pointer-events-none select-none overflow-hidden"
-            style={{ ...sharedStyle, background: "transparent", color: "transparent" }}
+            className="pointer-events-none select-none absolute inset-0 overflow-hidden rounded-lg"
+            style={{ ...sharedStyle, background: "transparent", margin: 0 }}
           >
             {tokens.map((line, i) => (
               <div key={i} {...getLineProps({ line })} style={{ display: "block" }}>
-                {/* Line number */}
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: `${GUTTER_W - PAD_V - 8}px`,
-                    marginLeft: `-${GUTTER_W - PAD_V}px`,
-                    marginRight: "8px",
-                    textAlign: "right",
-                    color: "#4a4a6a",
-                    userSelect: "none",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {i + 1}
-                </span>
-                {line.map((token, j) => (
-                  <span key={j} {...getTokenProps({ token })} style={{ ...getTokenProps({ token }).style, color: getTokenProps({ token }).style?.color }} />
-                ))}
-              </div>
-            ))}
-          </pre>
-        )}
-      </Highlight>
-
-      {/* ── Colour layer (visible syntax highlighting, pointer-events: none) ── */}
-      <Highlight theme={themes.vsDark} code={displayCode} language="python">
-        {({ tokens, getLineProps, getTokenProps }) => (
-          <pre
-            aria-hidden="true"
-            className="absolute inset-0 pointer-events-none select-none overflow-hidden"
-            style={{ ...sharedStyle, background: "transparent" }}
-          >
-            {tokens.map((line, i) => (
-              <div key={i} {...getLineProps({ line })} style={{ display: "block" }}>
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: `${GUTTER_W - PAD_V - 8}px`,
-                    marginLeft: `-${GUTTER_W - PAD_V}px`,
-                    marginRight: "8px",
-                    textAlign: "right",
-                    color: "#4a4a6a",
-                    userSelect: "none",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {i + 1}
-                </span>
+                <span style={lineNumberStyle}>{i + 1}</span>
                 {line.map((token, j) => <span key={j} {...getTokenProps({ token })} />)}
               </div>
             ))}
@@ -149,21 +191,24 @@ function CodeInput({ value, onChange }: { value: string; onChange: (v: string) =
         )}
       </Highlight>
 
-      {/* ── Textarea (transparent text, visible caret) ── */}
+      {/* ── Textarea — drives the height, transparent text so highlight shows ── */}
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         spellCheck={false}
         autoCapitalize="none"
         autoCorrect="off"
-        className="absolute inset-0 w-full h-full resize-none outline-none"
+        placeholder="Write your code here…"
+        rows={lineCount}
+        className="relative w-full resize-none outline-none block rounded-lg"
         style={{
           ...sharedStyle,
           background: "transparent",
           color: "transparent",
-          caretColor: "#e2e8f0",
-          // Prevent browser from adding its own scrollbar inside the fixed-height div
+          caretColor: EDITOR_CARET,
           overflow: "hidden",
+          // placeholder colour — only visible when empty
+          WebkitTextFillColor: "transparent",
         }}
         onKeyDown={(e) => {
           if (e.key === "Tab") {
@@ -179,7 +224,10 @@ function CodeInput({ value, onChange }: { value: string; onChange: (v: string) =
       />
 
       {/* ── Language badge ── */}
-      <div className="absolute top-2 right-3 text-[10px] font-semibold uppercase tracking-widest text-[#4a4a6a] select-none pointer-events-none">
+      <div
+        className="absolute top-2 right-3 text-[10px] font-semibold uppercase tracking-widest select-none pointer-events-none"
+        style={{ color: EDITOR_GUTTER_FG }}
+      >
         python
       </div>
     </div>
@@ -234,21 +282,6 @@ export default function QuestionRenderer({
     if (locked) return;
     const payload = { answerText: v, selectedOption: null, fileUrl: null };
     setCodeText(v);
-    onAnswerChange?.(question.id, payload);
-    scheduleDebounce(payload);
-  }
-
-  function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (locked) return;
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > MAX_PDF_BYTES) {
-      setPdfError("File exceeds the 10 MB limit.");
-      e.target.value = "";
-      return;
-    }
-    setPdfError(null);
-    const payload = { answerText: null, selectedOption: null, fileUrl: file.name };
     onAnswerChange?.(question.id, payload);
     scheduleDebounce(payload);
   }
@@ -315,7 +348,7 @@ export default function QuestionRenderer({
       return <CodeInput value={codeText} onChange={handleCodeChange} />;
     }
 
-    // ── Fill-in — notebook ruled lines ────────────────────────────────────────
+    // ── Fill-in — notebook ruled lines, auto-grows ───────────────────────────
     if (question.answerType === "FILL_IN") {
       const RULE_HEIGHT = 32; // px per line
       return (
@@ -324,7 +357,7 @@ export default function QuestionRenderer({
           onChange={handleFillChange}
           rows={12}
           placeholder="Write your answer here…"
-          className="w-full resize-none bg-transparent outline-none text-[#1f2937] placeholder-[#d1d5db]"
+          className="w-full resize-none bg-transparent outline-none text-[#1f2937] placeholder-[#d1d5db] overflow-hidden"
           style={{
             fontFamily: FONT_SANS,
             fontSize: "15px",
@@ -338,26 +371,37 @@ export default function QuestionRenderer({
             )`,
             backgroundSize: `100% ${RULE_HEIGHT}px`,
             paddingTop: "4px",
+            // Height = number of lines * rule height, minimum 12 rows
+            height: `${Math.max(12, fillText.split("\n").length) * RULE_HEIGHT}px`,
+          }}
+          onInput={(e) => {
+            // Auto-grow: snap height to the nearest rule line
+            const el = e.currentTarget
+            el.style.height = "0px"
+            const lines = Math.max(12, Math.ceil(el.scrollHeight / RULE_HEIGHT))
+            el.style.height = `${lines * RULE_HEIGHT}px`
           }}
         />
-      );
+      )
     }
 
     // ── PDF upload ────────────────────────────────────────────────────────────
     if (question.answerType === "PDF_UPLOAD") {
       return (
-        <div className="flex flex-col gap-3">
-          <label className="flex flex-col gap-2">
-            <span className="text-[13px] font-medium text-[#374151] flex items-center gap-2" style={{ fontFamily: FONT_SANS }}>
-              <FileText size={14} className="text-[#9ca3af]" />
-              Upload your answer as a PDF (max 10 MB)
-            </span>
-            <input type="file" accept=".pdf" onChange={handlePdfChange}
-              className="block text-sm text-[#4b5563] file:mr-3 file:rounded file:border-0 file:bg-[#f3f4f6] file:px-4 file:py-2 file:text-[13px] file:font-medium file:text-[#374151] hover:file:bg-[#e5e7eb] cursor-pointer"
-              style={{ fontFamily: FONT_SANS }} />
-          </label>
-          {pdfError && <p role="alert" className="text-xs text-[#dc2626]" style={{ fontFamily: FONT_SANS }}>{pdfError}</p>}
-        </div>
+        <PdfUpload
+          onFile={(file) => {
+            if (file.size > MAX_PDF_BYTES) {
+              setPdfError("File exceeds the 10 MB limit.")
+              return
+            }
+            setPdfError(null)
+            const payload = { answerText: null, selectedOption: null, fileUrl: file.name }
+            onAnswerChange?.(question.id, payload)
+            scheduleDebounce(payload)
+          }}
+          error={pdfError}
+          locked={locked}
+        />
       );
     }
 

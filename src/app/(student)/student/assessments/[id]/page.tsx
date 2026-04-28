@@ -81,6 +81,16 @@ export default async function AssessmentDetailPage({
     .filter((a) => a.status === "SUBMITTED" || a.status === "TIMED_OUT")
     .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0))[0] ?? null
 
+  // Determine the forced-submit reason from the tab switch log
+  type LogEntry = { event?: string; timestamp?: string }
+  const submissionReason = (() => {
+    if (!latestSubmitted) return null
+    const log = Array.isArray(latestSubmitted.tabSwitchLog) ? (latestSubmitted.tabSwitchLog as LogEntry[]) : []
+    if (log.some((e) => e.event === "FULLSCREEN_VIOLATION")) return "FULLSCREEN_VIOLATION"
+    if (latestSubmitted.status === "TIMED_OUT") return "TIMED_OUT"
+    return null
+  })()
+
   const typeStyle = typeBadgeStyles[assessment.type] ?? { bg: "#F1F5F9", text: "#475569" }
 
   const totalQuestions = assessment.sections.reduce(
@@ -252,7 +262,11 @@ export default async function AssessmentDetailPage({
                 .
               </p>
               {latestSubmitted.status === "TIMED_OUT" && (
-                <p className="mt-1 text-xs text-amber-600 font-medium">Auto-submitted due to time expiry.</p>
+                <p className="mt-1 text-xs font-medium text-amber-600">
+                  {submissionReason === "FULLSCREEN_VIOLATION"
+                    ? "Auto-submitted: fullscreen exited too many times."
+                    : "Auto-submitted due to time expiry."}
+                </p>
               )}
             </div>
             <Link

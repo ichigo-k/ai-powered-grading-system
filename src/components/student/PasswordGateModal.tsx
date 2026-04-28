@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { createPortal } from "react-dom"
 import { LockKeyhole, Loader2 } from "lucide-react"
 import { createOrResumeAttempt } from "@/lib/assessment-actions"
 
@@ -40,8 +41,8 @@ export default function PasswordGateModal({
     })
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
       <div className="w-full max-w-sm rounded-xl bg-white border border-[#e5e7eb] shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="px-6 py-5 border-b border-[#e5e7eb]">
@@ -86,10 +87,7 @@ export default function PasswordGateModal({
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#002388] px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#0B4DBB] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPending ? (
-              <>
-                <Loader2 size={14} className="animate-spin" />
-                Verifying…
-              </>
+              <><Loader2 size={14} className="animate-spin" />Verifying…</>
             ) : (
               "Start Assessment"
             )}
@@ -98,4 +96,6 @@ export default function PasswordGateModal({
       </div>
     </div>
   )
+
+  return typeof window !== "undefined" ? createPortal(modalContent, document.body) : null
 }
