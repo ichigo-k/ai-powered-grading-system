@@ -246,8 +246,8 @@ export default async function AssessmentDetailPage({
       <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
         {!studentId ? (
           <p className="text-sm text-slate-500">Please sign in to start this assessment.</p>
-        ) : hasSubmitted && latestSubmitted ? (
-          /* Submitted state — block re-entry */
+        ) : hasSubmitted && isLocked ? (
+          /* All attempts used — show submitted/locked state */
           <div className="flex flex-col items-center gap-3 py-4 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
               <CheckCircle2 size={28} className="text-green-600" />
@@ -256,12 +256,12 @@ export default async function AssessmentDetailPage({
               <p className="text-base font-semibold text-slate-800">Assessment Submitted</p>
               <p className="mt-1 text-sm text-slate-500">
                 You submitted this assessment on{" "}
-                {latestSubmitted.submittedAt
+                {latestSubmitted?.submittedAt
                   ? formatDate(latestSubmitted.submittedAt)
                   : "—"}
                 .
               </p>
-              {latestSubmitted.status === "TIMED_OUT" && (
+              {latestSubmitted?.status === "TIMED_OUT" && (
                 <p className="mt-1 text-xs font-medium text-amber-600">
                   {submissionReason === "FULLSCREEN_VIOLATION"
                     ? "Auto-submitted: fullscreen exited too many times."
@@ -308,6 +308,20 @@ export default async function AssessmentDetailPage({
         ) : (
           <>
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Start</h2>
+            {hasSubmitted && latestSubmitted && (
+              <div className="flex items-start gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-green-500" />
+                <div>
+                  <p className="text-xs font-medium text-slate-700">
+                    Attempt {latestSubmitted.attemptNumber} submitted
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Submitted on {latestSubmitted.submittedAt ? formatDate(latestSubmitted.submittedAt) : "—"}.
+                    You have {assessment.maxAttempts - attempts.length} attempt{assessment.maxAttempts - attempts.length !== 1 ? "s" : ""} remaining.
+                  </p>
+                </div>
+              </div>
+            )}
             <AssessmentEntryClient
               assessmentId={assessmentId}
               passwordProtected={assessment.passwordProtected}

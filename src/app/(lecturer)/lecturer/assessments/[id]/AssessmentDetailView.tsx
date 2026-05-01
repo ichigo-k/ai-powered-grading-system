@@ -14,6 +14,8 @@ import {
 } from "lucide-react"
 import { format } from "date-fns"
 import type { AssessmentWithDetails } from "@/lib/assessment-types"
+import EditSettingsModal from "./EditSettingsModal"
+import ReopenAssessmentButton from "./ReopenAssessmentButton"
 
 const typeBadge: Record<string, string> = {
   EXAM: "bg-red-50 text-red-700 border-red-200",
@@ -84,6 +86,10 @@ export default function AssessmentDetailView({ assessment }: Props) {
           </Link>
         ) : (
           <div className="flex items-center gap-2">
+            {assessment.status === "CLOSED" && (
+              <ReopenAssessmentButton assessmentId={assessment.id} />
+            )}
+            <EditSettingsModal assessment={assessment} />
             <Link
               href={`/lecturer/assessments/${assessment.id}/results`}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 bg-white text-xs text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all"
@@ -91,13 +97,6 @@ export default function AssessmentDetailView({ assessment }: Props) {
               <BarChart2 size={12} />
               Results
             </Link>
-            <span
-              title="Only draft assessments can be edited"
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-100 bg-slate-50 text-xs text-slate-400 cursor-not-allowed"
-            >
-              <Edit2 size={12} />
-              Edit
-            </span>
           </div>
         )}
       </div>

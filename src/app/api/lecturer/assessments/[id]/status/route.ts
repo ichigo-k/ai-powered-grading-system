@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { validateStatusTransition } from "@/lib/assessment-validation"
 
 async function getLecturerId(email: string): Promise<number | null> {
   const user = await prisma.user.findUnique({ where: { email }, select: { id: true } })
@@ -44,20 +43,32 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 
-  const transitionErr = validateStatusTransition(
-    assessment.status as "DRAFT" | "PUBLISHED" | "CLOSED",
-    body.status,
-    {
-      hasQuestions: assessment._count.questions > 0,
-      hasStartsAt: !!assessment.startsAt,
-      hasEndsAt: !!assessment.endsAt,
-      hasClasses: assessment._count.classes > 0,
-    }
-  )
+  const current = assessment.status as "DRAFT" | "PUBLISHED" | "CLOSED"
 
-  if (transitionErr) {
-    return NextResponse.json({ error: transitionErr }, { status: 400 })
+  // Allowed transitions:
+  //   DRAFT      → PUBLISHED  (publish)
+  //   PUBLISHED  → CLOSED     (close)
+  //   CLOSED     → PUBLISHED  (re-open)
+  if (current === "DRAFT" && body.status !== "PUBLISHED") {
+    return NextResponse.json({ error: "DRAFT can only transition to PUBLISHED" }, { status: 400 })
   }
+
+  if (current === "DRAFT" && body.status === "PUBLISHED") {
+    const missing: string[] = []
+    if (assessment._count.questions === 0) missing.push("at least one question")
+    if (!assessment.startsAt) missing.push("start date")
+    if (!assessment.endsAt) missing.push("end date")
+    if (assessment._count.classes === 0) missing.push("at least one assigned class")
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { error: `Cannot publish: missing ${missing.join(", ")}` },
+        { status: 400 }
+      )
+    }
+  }
+
+  // CLOSED → PUBLISHED: re-open. No extra validation needed beyond ownership.
+  // PUBLISHED → CLOSED: always allowed.
 
   const updated = await prisma.assessment.update({
     where: { id: assessmentId },

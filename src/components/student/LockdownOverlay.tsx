@@ -12,6 +12,7 @@ interface LockdownOverlayProps {
 
 export interface LockdownOverlayHandle {
   submit: () => void;
+  allowUnload: () => void;
 }
 
 const REASON_LABELS: Record<ViolationReason, string> = {
@@ -29,13 +30,20 @@ const LockdownOverlay = forwardRef<LockdownOverlayHandle, LockdownOverlayProps>(
     const [terminationReason, setTerminationReason] = useState<ViolationReason | null>(null);
 
     const intentionalExitRef = useRef(false);
+    // When true, the beforeunload handler will not block navigation.
+    // Set this before any programmatic navigation (timer expiry, forced submit).
+    const allowUnloadRef = useRef(false);
     const onSubmitRef = useRef(onSubmit);
     onSubmitRef.current = onSubmit;
 
     // Expose submit handle for intentional submission
     useImperativeHandle(ref, () => ({
+      allowUnload() {
+        allowUnloadRef.current = true;
+      },
       submit() {
         intentionalExitRef.current = true;
+        allowUnloadRef.current = true;
         const exit = document.fullscreenElement
           ? document.exitFullscreen()
           : Promise.resolve();
@@ -76,6 +84,7 @@ const LockdownOverlay = forwardRef<LockdownOverlayHandle, LockdownOverlayProps>(
       }
 
       function handleBeforeUnload(e: BeforeUnloadEvent) {
+        if (allowUnloadRef.current) return; // timer expiry or forced submit — let it through
         e.preventDefault();
       }
 
@@ -97,6 +106,7 @@ const LockdownOverlay = forwardRef<LockdownOverlayHandle, LockdownOverlayProps>(
         setIsOutOfFullscreen(false);
         // Instant submit — no countdown, no pity
         intentionalExitRef.current = true;
+        allowUnloadRef.current = true;
         const exit = document.fullscreenElement
           ? document.exitFullscreen()
           : Promise.resolve();

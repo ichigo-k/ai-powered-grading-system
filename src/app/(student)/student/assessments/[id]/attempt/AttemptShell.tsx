@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useTransition, useCallback } from "react"
+import { useState, useTransition, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { submitAttempt } from "@/lib/assessment-actions"
 import type { SerializedActiveAttempt, SerializedAssessmentDetail } from "./page"
 import LockdownOverlay from "@/components/student/LockdownOverlay"
+import type { LockdownOverlayHandle } from "@/components/student/LockdownOverlay"
 import AntiCheatGuard from "@/components/student/AntiCheatGuard"
 import type { ViolationReason } from "@/lib/violation-tracker"
 import QuestionRenderer from "@/components/student/QuestionRenderer"
@@ -38,6 +39,71 @@ export type QuestionWithAnswer = {
 }
 
 type AnswerMap = Map<number, { answerText: string | null; selectedOption: number | null; fileUrl: string | null }>
+
+// ─── Shuffle helpers ──────────────────────────────────────────────────────────
+
+// Reorder questions within each section according to the saved questionOrder array.
+// questionOrder is stored as [{ questionId: number }, ...] in the attempt.
+function applyQuestionOrder(
+  sections: SerializedAssessmentDetail["sections"],
+  questionOrder: unknown,
+): SerializedAssessmentDetail["sections"] {
+  if (!Array.isArray(questionOrder) || questionOrder.length === 0) return sections
+
+  // Build a position map: questionId → position in the saved order
+  const posMap = new Map<number, number>()
+  for (let i = 0; i < questionOrder.length; i++) {
+    const entry = questionOrder[i]
+    if (entry && typeof entry === "object" && "questionId" in entry) {
+      posMap.set(Number((entry as { questionId: number }).questionId), i)
+    }
+  }
+
+  if (posMap.size === 0) return sections
+
+  return sections.map((section) => ({
+    ...section,
+    questions: [...section.questions].sort((a, b) => {
+      const pa = posMap.has(a.id) ? posMap.get(a.id)! : Infinity
+      const pb = posMap.has(b.id) ? posMap.get(b.id)! : Infinity
+      return pa - pb
+    }),
+  }))
+}
+
+// Deterministic Fisher-Yates shuffle seeded by a number.
+// Returns a shuffled array of option indices [0, 1, 2, ...] for a question.
+function seededOptionShuffle(questionId: number, optionCount: number): number[] {
+  const indices = Array.from({ length: optionCount }, (_, i) => i)
+  // Simple LCG seeded by questionId
+  let seed = questionId
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) & 0xffffffff
+    return (seed >>> 0) / 0x100000000
+  }
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[indices[i], indices[j]] = [indices[j], indices[i]]
+  }
+  return indices
+}
+
+// Build a map of questionId → shuffled option indices for all objective questions.
+function buildOptionShuffleMap(
+  sections: SerializedAssessmentDetail["sections"],
+): Map<number, number[]> {
+  const map = new Map<number, number[]>()
+  for (const section of sections) {
+    if (section.type !== "OBJECTIVE") continue
+    for (const q of section.questions) {
+      const opts = Array.isArray(q.options) ? q.options : []
+      if (opts.length > 1) {
+        map.set(q.id, seededOptionShuffle(q.id, opts.length))
+      }
+    }
+  }
+  return map
+}
 
 // ─── Question Selection Screen ────────────────────────────────────────────────
 // Shown when a section has requiredQuestionsCount < total questions.
@@ -92,7 +158,7 @@ function QuestionSelectionScreen({
 
       {/* Question list */}
       <div className="flex flex-col divide-y divide-[#f3f4f6]">
-        {section.questions.map((q) => {
+        {section.questions.map((q, idx) => {
           const checked = selectedIds.has(q.id)
           const disabled = !checked && count >= required
           return (
@@ -123,7 +189,7 @@ function QuestionSelectionScreen({
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-3">
                   <span className="text-[11px] font-semibold uppercase tracking-widest text-[#9ca3af]">
-                    Q{q.order}
+                    Q{idx + 1}
                   </span>
                   <span className="text-[11px] text-[#9ca3af]">{q.marks} {q.marks === 1 ? "mark" : "marks"}</span>
                 </div>
@@ -269,8 +335,9 @@ function QuestionPalette({ questions, answeredIds, selectedIds, activeIndex, onS
         const isActive = i === activeIndex
         const isAnswered = answeredIds.has(q.id)
         const isLocked = selectedIds !== null && !selectedIds.has(q.id)
+        const displayNum = i + 1
         return (
-          <button key={q.id} type="button" onClick={() => onSelect(i)} title={`Question ${q.order}`}
+          <button key={q.id} type="button" onClick={() => onSelect(i)} title={`Question ${displayNum}`}
             disabled={isLocked}
             className={["flex h-7 w-full items-center justify-center rounded text-[11px] font-semibold transition-all",
               isLocked ? "bg-[#fafafa] text-[#d1d5db] cursor-not-allowed"
@@ -279,7 +346,7 @@ function QuestionPalette({ questions, answeredIds, selectedIds, activeIndex, onS
               : "bg-[#f3f4f6] text-[#6b7280] border border-[#e5e7eb] hover:bg-[#e5e7eb]",
             ].join(" ")}
           >
-            {q.order}
+            {displayNum}
           </button>
         )
       })}
@@ -291,7 +358,26 @@ function QuestionPalette({ questions, answeredIds, selectedIds, activeIndex, onS
 export default function AttemptShell({ attempt, assessment, assessmentId }: AttemptShellProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const firstSection = assessment.sections[0]
+  const lockdownRef = useRef<LockdownOverlayHandle>(null)
+
+  // ── Apply saved question order (shuffleQuestions) ─────────────────────────
+  // The server saved a randomised order in attempt.questionOrder at creation time.
+  // We reorder the sections' questions to match it so every student sees the
+  // same shuffled order for their attempt, even after a page refresh.
+  const orderedSections = assessment.shuffleQuestions
+    ? applyQuestionOrder(assessment.sections, attempt.questionOrder)
+    : assessment.sections
+
+  // ── Build per-question option shuffle map (shuffleOptions) ────────────────
+  // Deterministically seeded by questionId so the order is stable across renders.
+  const optionShuffleMap = assessment.shuffleOptions
+    ? buildOptionShuffleMap(orderedSections)
+    : new Map<number, number[]>()
+
+  // Use the (possibly reordered) sections everywhere below
+  const sections = orderedSections
+
+  const firstSection = sections[0]
   const [activeSectionId, setActiveSectionId] = useState<number>(firstSection?.id ?? 0)
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0)
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
@@ -302,7 +388,7 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
   // undefined means "not yet selected" — show selection screen
   const [sectionSelections, setSectionSelections] = useState<Map<number, Set<number> | undefined>>(() => {
     const map = new Map<number, Set<number> | undefined>()
-    for (const s of assessment.sections) {
+    for (const s of sections) {
       const required = s.requiredQuestionsCount
       if (required !== null && required < s.questions.length) {
         // Check if student already has answers in this section (resuming attempt)
@@ -347,12 +433,12 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
     return sectionSelections.get(sectionId) // undefined = needs selection, Set = confirmed
   }
 
-  const sectionsWithProgress: SectionWithProgress[] = assessment.sections.map((s) => ({
+  const sectionsWithProgress: SectionWithProgress[] = sections.map((s) => ({
     ...s,
     answeredCount: s.questions.filter((q) => hasAnswerValue(answers.get(q.id))).length,
   }))
 
-  const activeSection = assessment.sections.find((s) => s.id === activeSectionId) ?? firstSection
+  const activeSection = sections.find((s) => s.id === activeSectionId) ?? firstSection
   const activeSectionRequired = activeSection?.requiredQuestionsCount ?? null
   const activeSectionHasQuota = activeSectionRequired !== null && activeSectionRequired < (activeSection?.questions.length ?? 0)
 
@@ -381,7 +467,7 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
   // Use clamped index everywhere so header/nav stay consistent
   const safeActiveIndex = Math.min(activeQuestionIndex, Math.max(0, totalQuestionsInSection - 1))
 
-  const totalRequired = assessment.sections.reduce((sum, s) => sum + (s.requiredQuestionsCount ?? s.questions.length), 0)
+  const totalRequired = sections.reduce((sum, s) => sum + (s.requiredQuestionsCount ?? s.questions.length), 0)
   const totalAnsweredAll = sectionsWithProgress.reduce((sum, s) => sum + Math.min(s.answeredCount, s.requiredQuestionsCount ?? s.questions.length), 0)
 
   const answeredIdsInSection = new Set(
@@ -430,12 +516,17 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
   }, [])
 
   async function handleExpire() {
+    // Disable the beforeunload prompt so the browser doesn't ask "leave site?"
+    // when we redirect after the timer hits zero.
+    lockdownRef.current?.allowUnload()
     await submitAttempt(attempt.id, "TIMED_OUT")
     window.location.href = `/student/assessments/${assessmentId}`
   }
 
   function handleSubmitConfirm(reason?: "TIMED_OUT" | "FULLSCREEN_VIOLATION" | "TAB_SWITCH" | ViolationReason) {
     startTransition(async () => {
+      // Disable the beforeunload prompt before navigating away
+      lockdownRef.current?.allowUnload()
       // Map ViolationReason to the DB reason type
       const dbReason = reason === "FULLSCREEN_EXIT" ? "FULLSCREEN_VIOLATION"
         : reason === "TAB_SWITCH" ? "TAB_SWITCH"
@@ -445,14 +536,14 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
     })
   }
 
-  const activeSectionIdx = assessment.sections.findIndex((s) => s.id === activeSectionId)
-  const nextSection = assessment.sections[activeSectionIdx + 1]
+  const activeSectionIdx = sections.findIndex((s) => s.id === activeSectionId)
+  const nextSection = sections[activeSectionIdx + 1]
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <>
-      <LockdownOverlay isSecured={isSecured} attemptId={attempt.id} onSubmit={(reason) => handleSubmitConfirm(reason)} />
+      <LockdownOverlay ref={lockdownRef} isSecured={isSecured} attemptId={attempt.id} onSubmit={(reason) => handleSubmitConfirm(reason)} />
       <AntiCheatGuard isSecured={isSecured} attemptId={attempt.id} onSubmit={(reason) => handleSubmitConfirm(reason)} />
 
       {showSubmitDialog && (
@@ -635,6 +726,8 @@ export default function AttemptShell({ attempt, assessment, assessmentId }: Atte
                       key={activeQuestion.id}
                       question={activeQuestion}
                       attemptId={attempt.id}
+                      displayNumber={safeActiveIndex + 1}
+                      shuffledOptions={optionShuffleMap.get(activeQuestion.id)}
                       onAnswerChange={handleAnswerChange}
                     />
                   ) : (

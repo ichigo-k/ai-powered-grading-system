@@ -51,14 +51,23 @@ export async function createOrResumeAttempt(
     if (!password || password !== assessment.accessPassword) return { error: 'INVALID_PASSWORD' }
   }
 
+  // Resume an in-progress attempt if one exists
   const existing = await prisma.assessmentAttempt.findFirst({
     where: { assessmentId, studentId, status: 'IN_PROGRESS' },
     select: { id: true },
   })
   if (existing) return { attemptId: existing.id }
 
-  const attemptCount = await prisma.assessmentAttempt.count({ where: { assessmentId, studentId } })
-  if (attemptCount >= assessment.maxAttempts) return { error: 'MAX_ATTEMPTS_REACHED' }
+  // Count only completed attempts (SUBMITTED / TIMED_OUT) against the limit.
+  // IN_PROGRESS attempts are already handled above (resume), so they don't
+  // consume an extra slot here.
+  const completedCount = await prisma.assessmentAttempt.count({
+    where: { assessmentId, studentId, status: { in: ['SUBMITTED', 'TIMED_OUT'] } },
+  })
+  if (completedCount >= assessment.maxAttempts) return { error: 'MAX_ATTEMPTS_REACHED' }
+
+  // Total attempts (including any in-progress) determines the next attempt number
+  const totalCount = await prisma.assessmentAttempt.count({ where: { assessmentId, studentId } })
 
   let questionOrder: { questionId: number }[] = []
   if (assessment.shuffleQuestions) {
@@ -67,7 +76,7 @@ export async function createOrResumeAttempt(
   }
 
   const newAttempt = await prisma.assessmentAttempt.create({
-    data: { assessmentId, studentId, status: 'IN_PROGRESS', startedAt: new Date(), attemptNumber: attemptCount + 1, questionOrder },
+    data: { assessmentId, studentId, status: 'IN_PROGRESS', startedAt: new Date(), attemptNumber: totalCount + 1, questionOrder },
     select: { id: true },
   })
 

@@ -27,7 +27,7 @@ export default function AntiCheatGuard({ isSecured, attemptId, onSubmit }: AntiC
   const onSubmitRef = useRef(onSubmit)
   onSubmitRef.current = onSubmit
 
-  // Block copy/paste/devtools shortcuts
+  // Block copy/paste/devtools shortcuts + screenshot keys
   useEffect(() => {
     if (!isSecured) return
 
@@ -66,16 +66,35 @@ export default function AntiCheatGuard({ isSecured, attemptId, onSubmit }: AntiC
     }
     document.addEventListener("keydown", handleKeyDown)
 
+    // Inject print-blackout style — makes Ctrl+P / print-to-PDF show a blank page
+    const printStyle = document.createElement("style")
+    printStyle.id = "anti-cheat-print-style"
+    printStyle.textContent = `@media print { body { visibility: hidden !important; } }`
+    document.head.appendChild(printStyle)
+
+    // Disable text selection on the whole page during the exam
+    const noSelectStyle = document.createElement("style")
+    noSelectStyle.id = "anti-cheat-noselect-style"
+    noSelectStyle.textContent = `
+      body { -webkit-user-select: none !important; user-select: none !important; }
+      textarea, input { -webkit-user-select: text !important; user-select: text !important; }
+    `
+    document.head.appendChild(noSelectStyle)
+
     return () => {
       document.removeEventListener("copy", preventDefault)
       document.removeEventListener("cut", preventDefault)
       document.removeEventListener("paste", preventDefault)
       document.removeEventListener("contextmenu", preventDefault)
       document.removeEventListener("keydown", handleKeyDown)
+      document.getElementById("anti-cheat-print-style")?.remove()
+      document.getElementById("anti-cheat-noselect-style")?.remove()
     }
   }, [isSecured])
 
-  // Tab switch detection
+  // Tab switch + window blur detection
+  // visibilitychange fires for: Alt+Tab, Win+D, Snipping Tool, most screenshot tools
+  // blur fires for: Win+Shift+S overlay, some screenshot apps that don't hide the tab
   useEffect(() => {
     if (!isSecured) return
 
@@ -88,17 +107,38 @@ export default function AntiCheatGuard({ isSecured, attemptId, onSubmit }: AntiC
       return
     }
 
+    // Debounce: blur + visibilitychange can fire together for the same event.
+    // Only count one violation per "leave" event.
+    let leaveDebounce: ReturnType<typeof setTimeout> | null = null
+    const recordLeave = () => {
+      if (leaveDebounce) return
+      leaveDebounce = setTimeout(() => { leaveDebounce = null }, 500)
+      logTabSwitch(attemptId, new Date().toISOString())
+      const next = addViolation(attemptId, "TAB_SWITCH")
+      setViolationCount(next)
+      setShowWarning(true)
+    }
+
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        logTabSwitch(attemptId, new Date().toISOString())
-        const next = addViolation(attemptId, "TAB_SWITCH")
-        setViolationCount(next)
-        setShowWarning(true)
-      }
+      if (document.visibilityState === "hidden") recordLeave()
+    }
+
+    // window blur fires when the user switches to another app or the OS screenshot
+    // overlay steals focus (Win+Shift+S, Snipping Tool, etc.)
+    const handleBlur = () => {
+      // Only count if the page is still visible — avoids double-counting with
+      // visibilitychange when both fire for the same Alt+Tab
+      if (document.visibilityState === "visible") recordLeave()
     }
 
     document.addEventListener("visibilitychange", handleVisibilityChange)
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
+    window.addEventListener("blur", handleBlur)
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      window.removeEventListener("blur", handleBlur)
+      if (leaveDebounce) clearTimeout(leaveDebounce)
+    }
   }, [isSecured, attemptId])
 
   // Trigger termination when limit is reached
@@ -175,7 +215,7 @@ export default function AntiCheatGuard({ isSecured, attemptId, onSubmit }: AntiC
         </div>
       )}
 
-      {/* Tab switch warning overlay */}
+      {/* Tab switch / focus-loss warning overlay */}
       {showWarning && !terminated && (
         <div
           className="fixed inset-0 z-[99999] flex flex-col items-center justify-center"
@@ -187,10 +227,10 @@ export default function AntiCheatGuard({ isSecured, attemptId, onSubmit }: AntiC
             </div>
             <div>
               <p className="text-white text-[18px] font-semibold mb-2">
-                Tab switch detected
+                Focus lost
               </p>
               <p className="text-white/60 text-[14px] leading-relaxed">
-                You left the exam page. This has been logged.
+                You left the exam page or switched applications. This has been logged.
               </p>
               <div className="mt-4 flex items-center justify-center gap-2">
                 {Array.from({ length: MAX_VIOLATIONS }).map((_, i) => (
