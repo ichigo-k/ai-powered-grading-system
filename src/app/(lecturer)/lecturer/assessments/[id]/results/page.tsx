@@ -155,7 +155,6 @@ async function ResultsData({ id }: { id: string }) {
     select: {
       studentId: true,
       score: true,
-      grade: true,
       submittedAt: true,
       status: true,
     },
@@ -169,7 +168,9 @@ async function ResultsData({ id }: { id: string }) {
         studentId: attempt.studentId,
         score: attempt.score,
         submittedAt: attempt.submittedAt,
-        status: attempt.grade ? "GRADED" : "SUBMITTED",
+        // An attempt is considered GRADED when the grader has written a final score
+        // (gradingStatus === GRADED on the assessment is the reliable signal)
+        status: assessment.gradingStatus === "GRADED" ? "GRADED" : "SUBMITTED",
       })
     }
   }
