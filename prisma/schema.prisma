@@ -151,6 +151,11 @@ model SystemSettings {
   academicYear    String   @default("2023/2024")
   semester        String   @default("First Semester")
   contactEmail    String   @default("admin@system.edu")
+  // Grading scale: JSON array of {label, minPercent} sorted descending by minPercent.
+  // e.g. [{"label":"A+","minPercent":90},{"label":"A","minPercent":85},...]
+  // The last entry acts as the catch-all (lowest threshold). Anything below all
+  // thresholds receives the label of the last entry (typically "F").
+  gradingScale    Json     @default("[{\"label\":\"A+\",\"minPercent\":90},{\"label\":\"A\",\"minPercent\":85},{\"label\":\"A-\",\"minPercent\":80},{\"label\":\"B+\",\"minPercent\":75},{\"label\":\"B\",\"minPercent\":70},{\"label\":\"B-\",\"minPercent\":65},{\"label\":\"C+\",\"minPercent\":60},{\"label\":\"C\",\"minPercent\":55},{\"label\":\"C-\",\"minPercent\":50},{\"label\":\"D+\",\"minPercent\":45},{\"label\":\"D\",\"minPercent\":40},{\"label\":\"F\",\"minPercent\":0}]")
   updatedAt       DateTime @updatedAt
 
   @@map("system_settings")
@@ -297,7 +302,6 @@ model AssessmentAttempt {
   submittedAt    DateTime?
   status         AttemptStatus @default(IN_PROGRESS)
   score          Float?
-  grade          String?
   attemptNumber  Int
   questionOrder  Json          @default("[]")
   tabSwitchLog   Json          @default("[]")
@@ -323,4 +327,39 @@ model StudentAnswer {
 
   @@unique([attemptId, questionId])
   @@map("student_answers")
+}
+
+// ---------------------------------------------------------------------------
+// Grader feedback tables — owned and migrated by Prisma.
+// The verion-ai-grader Django service reads and writes these tables but
+// does NOT run migrations against them (managed = False in Django).
+// ---------------------------------------------------------------------------
+
+model GradingResult {
+  id                Int             @id @default(autoincrement())
+  attemptId         Int             @unique
+  assessmentId      Int
+  score             Float
+  plagiarismFlagged Boolean         @default(false)
+  gradedAt          DateTime
+  errorNotes        String          @default("")
+
+  answerFeedbacks   AnswerFeedback[]
+
+  @@map("grader_gradingresult")
+}
+
+model AnswerFeedback {
+  id               Int           @id @default(autoincrement())
+  gradingResultId  Int
+  gradingResult    GradingResult @relation(fields: [gradingResultId], references: [id])
+  questionId       Int
+  totalScore       Float
+  maxScore         Float
+  flag             String        @default("")
+  flagReason       String        @default("")
+  criteriaFeedback Json          @default("[]")
+  bedrockError     Boolean       @default(false)
+
+  @@map("grader_answerfeedback")
 }

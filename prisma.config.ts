@@ -7,6 +7,13 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
+    // Shadow database used by `prisma migrate dev` for drift detection.
+    // Must be a separate database/branch from DATABASE_URL.
+    // Create a Neon branch and paste its connection string here.
+    // Not needed for `prisma migrate deploy` (used in production/CI).
+    ...(process.env["SHADOW_DATABASE_URL"] && {
+      shadowDatabaseUrl: process.env["SHADOW_DATABASE_URL"],
+    }),
   },
   datasource: {
     url: process.env["DATABASE_URL"],
