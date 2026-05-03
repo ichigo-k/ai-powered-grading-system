@@ -1,265 +1,205 @@
 # Assessment Grading Flow
 
 ## Overview
-The system uses a hybrid grading approach: **MCQ auto-graded** on submission, **subjective questions graded externally** by a separate grader service that has direct DB access.
+
+The system uses a hybrid grading approach:
+
+- **MCQ questions** — auto-scored at submission time by the main system
+- **Subjective questions** — graded by the `verion-ai-grader` Django microservice using AWS Bedrock
+- **Grade letters** — never stored; computed on read from the admin-configured grading scale
 
 ---
 
-## Database Schema Changes
+## Grading Scale
 
-### New Enum: `GradingStatus`
-```prisma
-enum GradingStatus {
-  NOT_GRADED  // Initial state
-  GRADING     // Lecturer triggered grading, external grader is working
-  GRADED      // External grader finished, all scores written
-}
+Grade letters (A+, A, B, etc.) are **not stored in the database**. Only the raw numeric `score` is persisted on `assessment_attempts`. The letter grade is computed at read time using the scale configured by the admin.
+
+**Admin configuration:** Settings → System Settings → Grading Scale
+
+The scale is stored as a JSON array in `system_settings.gradingScale`:
+```json
+[
+  { "label": "A+", "minPercent": 90 },
+  { "label": "A",  "minPercent": 85 },
+  { "label": "A-", "minPercent": 80 },
+  { "label": "B+", "minPercent": 75 },
+  { "label": "B",  "minPercent": 70 },
+  { "label": "B-", "minPercent": 65 },
+  { "label": "C+", "minPercent": 60 },
+  { "label": "C",  "minPercent": 55 },
+  { "label": "C-", "minPercent": 50 },
+  { "label": "D+", "minPercent": 45 },
+  { "label": "D",  "minPercent": 40 },
+  { "label": "F",  "minPercent": 0  }
+]
 ```
 
-### New Fields on `Assessment`
-```prisma
-model Assessment {
-  // ... existing fields
-  gradingStatus   GradingStatus @default(NOT_GRADED)
-  resultsReleased Boolean       @default(false)
-}
-```
+The admin can add, remove, or rename any grade band. The system picks up changes immediately — no migration needed.
 
-### Migration
-Run when DB is available:
-```bash
-npx prisma migrate deploy
-```
-
-Or apply manually:
-```sql
--- See: prisma/migrations/20260428_add_grading_status_and_release/migration.sql
-CREATE TYPE "GradingStatus" AS ENUM ('NOT_GRADED', 'GRADING', 'GRADED');
-ALTER TABLE "assessments"
-  ADD COLUMN "gradingStatus" "GradingStatus" NOT NULL DEFAULT 'NOT_GRADED',
-  ADD COLUMN "resultsReleased" BOOLEAN NOT NULL DEFAULT false;
-```
+**Utility:** `src/lib/grading-scale.ts` → `computeGrade(score, totalMarks, scale)`
 
 ---
 
-## Flow
+## Full Flow
 
-### 1. Student Submits Assessment
+### 1. Student Submits
 
 **File:** `src/lib/assessment-actions.ts` → `submitAttempt()`
 
-- Hashes all answers for integrity
-- **Auto-scores MCQ questions** (checks `selectedOption` against `correctOption`)
-- Calculates partial score and grade (MCQ only)
-- Sets `AssessmentAttempt.status = SUBMITTED` (or `TIMED_OUT`)
-- Writes `score` and `grade` to attempt record
+- Hashes all answers (`answerHash`) for plagiarism detection
+- Auto-scores MCQ questions by comparing `selectedOption` against `correctOption`
+- Writes MCQ score to `assessment_attempts.score`
+- Sets `assessment_attempts.status = SUBMITTED` (or `TIMED_OUT`)
 
-**Result:** Student has a partial score (MCQ only). Subjective answers are stored but not scored yet.
+**Result:** Attempt has a partial score (MCQ only). Subjective answers are stored but unscored.
 
 ---
 
 ### 2. Lecturer Triggers Grading
 
-**UI:** Results page → **"Grade Assessment"** button
+**UI:** Results page → "Grade Assessment" button
 
 **API:** `POST /api/lecturer/assessments/[id]/start-grading`
 
-**Action:**
-```typescript
-await prisma.assessment.update({
-  where: { id: assessmentId },
-  data: { gradingStatus: "GRADING" },
-})
-```
-
-**Result:** `gradingStatus = GRADING`. External grader can now detect this assessment needs grading.
+Sets `assessments.gradingStatus = GRADING`.
 
 ---
 
-### 3. External Grader Processes
+### 3. Grader Service Processes
 
-**External Service** (not part of this codebase):
-- Polls or queries DB for assessments where `gradingStatus = 'GRADING'`
-- Reads `AssessmentAttempt` records with `status IN ('SUBMITTED', 'TIMED_OUT')`
-- Reads `StudentAnswer` records for subjective questions
-- Grades subjective answers (AI/manual/hybrid)
-- **Writes scores back to DB:**
-  ```sql
-  UPDATE assessment_attempts
-  SET score = <new_total_score>, grade = <new_grade>
-  WHERE id = <attempt_id>;
-  ```
-- After all attempts graded:
-  ```sql
-  UPDATE assessments
-  SET "gradingStatus" = 'GRADED'
-  WHERE id = <assessment_id>;
-  ```
+**Service:** `verion-ai-grader` (separate Django process)
 
-**Result:** All attempts have final scores. `gradingStatus = GRADED`.
+Called via `POST /api/grade/assessment/{id}/` with an `X-API-Key` header.
+
+What it does:
+1. Fetches all `SUBMITTED` / `TIMED_OUT` attempts
+2. Runs plagiarism detection across all `answerHash` values
+3. For each attempt (up to `GRADING_CONCURRENCY` in parallel):
+   - Fetches subjective answers
+   - Calls AWS Bedrock per answer with rubric-guided or holistic prompt
+   - Caps per-criterion scores at their `maxMarks`
+   - Adds subjective scores to the existing MCQ score
+   - Caps final score at `assessment.totalMarks`
+   - Writes final `score` to `assessment_attempts.score`
+   - Persists audit record to `grader_gradingresult`
+   - Persists per-answer AI feedback to `grader_answerfeedback`
+4. Sets `assessments.gradingStatus = GRADED`
+
+**Score formula:**
+```
+final_score = min(mcq_score + sum(subjective_scores), totalMarks)
+```
+
+**Bedrock failure handling:** If Bedrock fails for one answer, that answer scores 0 and grading continues. The error is recorded in `grader_answerfeedback.bedrock_error` and `grader_gradingresult.error_notes`.
 
 ---
 
-### 4. Lecturer Views Progress
+### 4. Lecturer Views Results
 
-**UI:** Results page auto-refreshes or lecturer refreshes manually
+Results page shows grading status and per-student scores. Grade letters are computed on the fly from `score` using the admin-configured scale.
 
-**Display:**
-- Shows **X / Y graded** (e.g., "8 / 10 graded")
-- Grading status pill:
-  - 🟡 **"Grading in progress…"** (animated pulse) when `GRADING`
-  - 🟢 **"Grading complete"** when `GRADED`
-
-**Data Source:**
-```typescript
-const gradedCount = submissions.filter(s => s.status === "GRADED").length
-const submittedCount = submissions.length
-```
+Grading status pill:
+- 🟡 `GRADING` — "Grading in progress…"
+- 🟢 `GRADED` — "Grading complete" + "Release Results" button
 
 ---
 
 ### 5. Lecturer Releases Results
 
-**UI:** Results page → **"Release Results"** button (only visible when `gradingStatus = GRADED`)
-
 **API:** `POST /api/lecturer/assessments/[id]/release-results`
 
-**Action:**
-```typescript
-if (assessment.gradingStatus !== "GRADED") {
-  return { error: "Grading not complete" }
-}
-await prisma.assessment.update({
-  where: { id: assessmentId },
-  data: { resultsReleased: true },
-})
-```
-
-**Result:** `resultsReleased = true`. Students can now see their scores.
+Sets `assessments.resultsReleased = true`. Students can now see their scores and AI feedback.
 
 ---
 
 ### 6. Students View Results
 
-**UI:** Student assessment detail page or dashboard
+Students see their numeric score and computed grade letter. If the assessment has subjective questions, they also see per-answer AI feedback (criteria scores + justifications) sourced from `grader_answerfeedback`.
 
-**Logic:**
-```typescript
-const assessment = await getAssessmentWithQuestions(assessmentId)
-if (!assessment.resultsReleased) {
-  // Hide scores, show "Results pending"
-}
-```
+---
 
-**Display:**
-- If `resultsReleased = false`: "Results pending" or similar
-- If `resultsReleased = true`: Show score, grade, breakdown
+## Database Tables
+
+### Owned by main system (Next.js / Prisma)
+
+| Table | Grader access |
+|-------|--------------|
+| `assessments` | Read `totalMarks`; write `gradingStatus = GRADED` |
+| `assessment_attempts` | Read MCQ `score`; write final `score` |
+| `assessment_sections` | Read only (filter by `type = SUBJECTIVE`) |
+| `questions` | Read only |
+| `rubric_criteria` | Read only |
+| `student_answers` | Read only |
+| `system_settings` | Main system only — stores `gradingScale` JSON |
+
+### Owned by grader service (Django migrations)
+
+| Table | Contents |
+|-------|---------|
+| `grader_gradingresult` | Per-attempt: score snapshot, plagiarism flag, error notes |
+| `grader_answerfeedback` | Per-answer: AI feedback, criteria scores, justifications, flags |
+| `auth_keys_apikey` | Hashed API keys for grader endpoint authentication |
+
+The main system reads `grader_gradingresult` and `grader_answerfeedback` via **read-only Prisma models** (`src/lib/grading-feedback.ts`). It never writes to these tables.
 
 ---
 
 ## API Endpoints
 
-### `POST /api/lecturer/assessments/[id]/start-grading`
-- **Auth:** Lecturer only
-- **Action:** Sets `gradingStatus = GRADING`
-- **Returns:** `{ success: true, gradingStatus: "GRADING" }`
+### Main system
 
-### `POST /api/lecturer/assessments/[id]/release-results`
-- **Auth:** Lecturer only
-- **Validation:** Requires `gradingStatus = GRADED`
-- **Action:** Sets `resultsReleased = true`
-- **Returns:** `{ success: true, resultsReleased: true }`
+| Endpoint | Auth | Action |
+|----------|------|--------|
+| `POST /api/lecturer/assessments/[id]/start-grading` | Lecturer | Sets `gradingStatus = GRADING` |
+| `POST /api/lecturer/assessments/[id]/release-results` | Lecturer | Sets `resultsReleased = true` |
 
----
+### Grader service
 
-## External Grader Integration
-
-### What the External Grader Needs
-
-1. **Direct DB access** (PostgreSQL connection string)
-2. **Read access:**
-   - `assessments` (filter by `gradingStatus = 'GRADING'`)
-   - `assessment_attempts` (filter by `status IN ('SUBMITTED', 'TIMED_OUT')`)
-   - `student_answers` (join on `attemptId`)
-   - `questions` (to know which are subjective, marks, rubrics)
-3. **Write access:**
-   - Update `assessment_attempts.score` and `assessment_attempts.grade`
-   - Update `assessments.gradingStatus` to `'GRADED'` when done
-
-### Example Query for External Grader
-
-```sql
--- Find assessments needing grading
-SELECT id, title, "totalMarks"
-FROM assessments
-WHERE "gradingStatus" = 'GRADING';
-
--- Get all submitted attempts for an assessment
-SELECT id, "studentId", "attemptNumber", score, grade
-FROM assessment_attempts
-WHERE "assessmentId" = $1
-  AND status IN ('SUBMITTED', 'TIMED_OUT');
-
--- Get subjective answers for an attempt
-SELECT sa.id, sa."answerText", sa."fileUrl", q.body, q.marks, q."answerType"
-FROM student_answers sa
-JOIN questions q ON sa."questionId" = q.id
-JOIN assessment_sections s ON q."sectionId" = s.id
-WHERE sa."attemptId" = $1
-  AND s.type = 'SUBJECTIVE';
-
--- Write back scores
-UPDATE assessment_attempts
-SET score = $1, grade = $2
-WHERE id = $3;
-
--- Mark assessment as graded
-UPDATE assessments
-SET "gradingStatus" = 'GRADED'
-WHERE id = $1;
-```
+| Endpoint | Auth | Action |
+|----------|------|--------|
+| `POST /api/grade/assessment/{id}/` | X-API-Key | Batch grade all eligible attempts |
+| `POST /api/grade/attempt/{id}/` | X-API-Key | Grade a single attempt |
 
 ---
 
 ## UI States
 
-### Results Page (`/lecturer/assessments/[id]/results`)
-
-| `gradingStatus` | `resultsReleased` | UI State |
-|-----------------|-------------------|----------|
-| `NOT_GRADED` | `false` | **"Grade Assessment"** button visible |
-| `GRADING` | `false` | 🟡 **"Grading in progress… X / Y graded"** pill, no buttons |
-| `GRADED` | `false` | 🟢 **"Grading complete X / Y graded"** + **"Release Results"** button |
-| `GRADED` | `true` | 🟢 **"Results released to students"** badge |
+| `gradingStatus` | `resultsReleased` | UI |
+|-----------------|-------------------|----|
+| `NOT_GRADED` | `false` | "Grade Assessment" button |
+| `GRADING` | `false` | 🟡 "Grading in progress…" pill |
+| `GRADED` | `false` | 🟢 "Grading complete" + "Release Results" button |
+| `GRADED` | `true` | 🟢 "Results released" badge |
 
 ---
 
-## Testing Without External Grader
+## Testing Without the Grader Service
 
-To simulate the external grader for testing:
+Simulate the grader writing back scores directly:
 
 ```sql
--- Manually mark an assessment as graded
+-- Write a final score for an attempt
+UPDATE assessment_attempts
+SET score = 74.5
+WHERE id = <attempt_id>;
+
+-- Mark assessment as graded
 UPDATE assessments
 SET "gradingStatus" = 'GRADED'
 WHERE id = <assessment_id>;
-
--- Manually update attempt scores (simulate grader writing back)
-UPDATE assessment_attempts
-SET score = 85, grade = 'A'
-WHERE "assessmentId" = <assessment_id>
-  AND status IN ('SUBMITTED', 'TIMED_OUT');
 ```
 
-Then refresh the results page — you'll see "Grading complete" and the "Release Results" button.
+The grade letter will be computed automatically from the score when the results page loads.
 
 ---
 
-## Summary
+## Key Files
 
-✅ **MCQ auto-scored** on submission (instant partial results)  
-✅ **Lecturer triggers grading** → sets `gradingStatus = GRADING`  
-✅ **External grader** reads DB, grades subjective, writes scores, sets `gradingStatus = GRADED`  
-✅ **Lecturer sees progress** → X / Y graded  
-✅ **Lecturer releases results** → students can see scores  
-✅ **No webhook needed** — external grader has direct DB access
+| File | Purpose |
+|------|---------|
+| `src/lib/assessment-actions.ts` | MCQ auto-scoring at submission |
+| `src/lib/grading-scale.ts` | `computeGrade()` utility — pure function, no DB |
+| `src/lib/grading-feedback.ts` | Read-only queries for grader feedback tables |
+| `src/lib/student-queries.ts` | Student-facing queries — computes grade on read |
+| `src/app/actions/admin-settings-server.ts` | Save/load grading scale from system settings |
+| `src/app/(admin)/admin/settings/SystemSettingsForm.tsx` | Admin UI for configuring grade bands |
