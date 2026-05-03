@@ -3,11 +3,13 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { logAction } from "@/lib/audit";
+import { DEFAULT_GRADING_SCALE, type GradeEntry } from "@/lib/grading-scale";
 
 export async function saveSystemSettingsAction(data: {
 	academicYear: string;
 	semester: string;
 	contactEmail: string;
+	gradingScale: GradeEntry[];
 }) {
 	try {
 
@@ -17,12 +19,14 @@ export async function saveSystemSettingsAction(data: {
 				academicYear: data.academicYear,
 				semester: data.semester,
 				contactEmail: data.contactEmail,
+				gradingScale: data.gradingScale,
 			},
 			create: {
 				id: 1,
 				academicYear: data.academicYear,
 				semester: data.semester,
 				contactEmail: data.contactEmail,
+				gradingScale: data.gradingScale,
 			},
 		});
 
@@ -46,7 +50,7 @@ export async function getSystemSettingsAction() {
 		let settings = await prisma.systemSettings.findFirst();
 		if (!settings) {
 			settings = await prisma.systemSettings.create({
-				data: { id: 1 }
+				data: { id: 1, gradingScale: DEFAULT_GRADING_SCALE as any },
 			});
 		}
 		return settings;
@@ -69,5 +73,23 @@ export async function clearAuditLogsAction() {
 	} catch (error) {
 		console.error("Failed to clear audit logs:", error);
 		return { success: false, error: "Failed to clear audit logs" };
+	}
+}
+
+/**
+ * Fetch the grading scale for use in server components and API routes.
+ * Returns the parsed GradeEntry array, falling back to the default scale.
+ */
+export async function getGradingScaleAction(): Promise<GradeEntry[]> {
+	try {
+		const settings = await prisma.systemSettings.findFirst({
+			select: { gradingScale: true },
+		});
+		if (!settings?.gradingScale) return DEFAULT_GRADING_SCALE;
+		const raw = settings.gradingScale;
+		if (!Array.isArray(raw)) return DEFAULT_GRADING_SCALE;
+		return raw as GradeEntry[];
+	} catch {
+		return DEFAULT_GRADING_SCALE;
 	}
 }

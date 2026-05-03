@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { deriveStatus, computeAverage, sortAndLimit } from '@/lib/student-utils'
+import { computeGrade, parseGradingScale } from '@/lib/grading-scale'
 import type { DerivedStatus } from '@/lib/student-utils'
 
 export type DashboardData = {
@@ -28,7 +29,7 @@ type RecentResultItem = {
   courseTitle: string
   endsAt: Date
   score: number | null
-  grade: string | null
+  grade: string | null  // computed from score on read
 }
 
 export type StudentAssessmentRow = {
@@ -45,8 +46,7 @@ export type StudentAssessmentRow = {
   totalMarks: number
   maxAttempts: number
   sections: { id: number; name: string; type: string; requiredQuestionsCount: number | null }[]
-  latestAttempt: { score: number | null; grade: string | null; attemptNumber: number; status: string } | null
-}
+  latestAttempt: { score: number | null; grade: string | null; attemptNumber: number; status: string } | null}
 
 export type AssessmentDetail = {
   id: number
@@ -87,7 +87,7 @@ export type AttemptRow = {
   attemptNumber: number
   status: string
   score: number | null
-  grade: string | null
+  grade: string | null  // computed from score on read, not stored in DB
   startedAt: Date
   submittedAt: Date | null
   questionOrder: unknown
@@ -150,7 +150,7 @@ export async function getDashboardData(studentId: number): Promise<DashboardData
             where: { studentId },
             orderBy: { attemptNumber: 'desc' },
             take: 1,
-            select: { score: true, grade: true, status: true },
+            select: { score: true, status: true },
           },
         },
       },
@@ -193,6 +193,10 @@ export async function getDashboardData(studentId: number): Promise<DashboardData
     status: a.derivedStatus,
   }))
 
+  // Load grading scale once for grade computation
+  const settingsRow = await prisma.systemSettings.findFirst({ select: { gradingScale: true } })
+  const scale = parseGradingScale(settingsRow?.gradingScale)
+
   const recentResults = sortAndLimit(
     enriched.filter(
       (a) => a.derivedStatus === 'completed' && (a.attempts[0]?.score ?? null) !== null,
@@ -200,15 +204,18 @@ export async function getDashboardData(studentId: number): Promise<DashboardData
     'endsAt',
     'desc',
     4,
-  ).map((a) => ({
-    id: a.id,
-    title: a.title,
-    type: a.type,
-    courseTitle: a.course.title,
-    endsAt: a.endsAt,
-    score: a.attempts[0]?.score ?? null,
-    grade: a.attempts[0]?.grade ?? null,
-  }))
+  ).map((a) => {
+    const score = a.attempts[0]?.score ?? null
+    return {
+      id: a.id,
+      title: a.title,
+      type: a.type,
+      courseTitle: a.course.title,
+      endsAt: a.endsAt,
+      score,
+      grade: score !== null ? computeGrade(score, a.totalMarks, scale) : null,
+    }
+  })
 
   return { upcomingCount, ongoingCount, completedCount, averageScore, upcomingAssessments, recentResults }
 }
@@ -247,32 +254,46 @@ export async function getStudentAssessments(studentId: number): Promise<StudentA
             where: { studentId },
             orderBy: { attemptNumber: 'desc' },
             take: 1,
-            select: { score: true, grade: true, attemptNumber: true, status: true },
+            select: { score: true, attemptNumber: true, status: true },
           },
         },
       },
     },
   })
 
+  // Load grading scale for grade computation
+  const settingsRow2 = await prisma.systemSettings.findFirst({ select: { gradingScale: true } })
+  const scale2 = parseGradingScale(settingsRow2?.gradingScale)
+
   return rows
     .map((r) => r.assessment)
     .filter((a) => a.status === 'PUBLISHED')
-    .map((a) => ({
-      id: a.id,
-      title: a.title,
-      type: a.type,
-      status: deriveStatus(a.startsAt, a.endsAt, now),
-      courseTitle: a.course.title,
-      courseCode: a.course.code,
-      courseId: a.courseId,
-      startsAt: a.startsAt,
-      endsAt: a.endsAt,
-      durationMinutes: a.durationMinutes,
-      totalMarks: a.totalMarks,
-      maxAttempts: a.maxAttempts,
-      sections: a.sections,
-      latestAttempt: a.attempts[0] ?? null,
-    }))
+    .map((a) => {
+      const raw = a.attempts[0] ?? null
+      return {
+        id: a.id,
+        title: a.title,
+        type: a.type,
+        status: deriveStatus(a.startsAt, a.endsAt, now),
+        courseTitle: a.course.title,
+        courseCode: a.course.code,
+        courseId: a.courseId,
+        startsAt: a.startsAt,
+        endsAt: a.endsAt,
+        durationMinutes: a.durationMinutes,
+        totalMarks: a.totalMarks,
+        maxAttempts: a.maxAttempts,
+        sections: a.sections,
+        latestAttempt: raw
+          ? {
+              score: raw.score,
+              grade: raw.score !== null ? computeGrade(raw.score, a.totalMarks, scale2) : null,
+              attemptNumber: raw.attemptNumber,
+              status: raw.status,
+            }
+          : null,
+      }
+    })
 }
 
 export async function getAssessmentWithQuestions(assessmentId: number): Promise<AssessmentDetail | null> {
@@ -335,7 +356,16 @@ export async function getAssessmentWithQuestions(assessmentId: number): Promise<
 }
 
 export async function getStudentAttempts(studentId: number, assessmentId: number): Promise<AttemptRow[]> {
-  return prisma.assessmentAttempt.findMany({
+  const assessment = await prisma.assessment.findUnique({
+    where: { id: assessmentId },
+    select: { totalMarks: true },
+  })
+  const totalMarks = assessment?.totalMarks ?? 100
+
+  const settingsRow = await prisma.systemSettings.findFirst({ select: { gradingScale: true } })
+  const scale = parseGradingScale(settingsRow?.gradingScale)
+
+  const rows = await prisma.assessmentAttempt.findMany({
     where: { studentId, assessmentId },
     orderBy: { attemptNumber: 'desc' },
     select: {
@@ -343,13 +373,17 @@ export async function getStudentAttempts(studentId: number, assessmentId: number
       attemptNumber: true,
       status: true,
       score: true,
-      grade: true,
       startedAt: true,
       submittedAt: true,
       questionOrder: true,
       tabSwitchLog: true,
     },
   })
+
+  return rows.map((r) => ({
+    ...r,
+    grade: r.score !== null ? computeGrade(r.score, totalMarks, scale) : null,
+  }))
 }
 
 export type ScheduleItem = {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { computeGrade, parseGradingScale } from "@/lib/grading-scale"
 
 async function getLecturerId(email: string) {
   const user = await prisma.user.findUnique({ where: { email }, select: { id: true } })
@@ -103,7 +104,6 @@ export async function GET(
     select: {
       assessmentId: true,
       score: true,
-      grade: true,
       status: true,
       submittedAt: true,
     },
@@ -117,6 +117,10 @@ export async function GET(
     }
   }
 
+  // Load grading scale once for grade computation
+  const settingsRow = await prisma.systemSettings.findFirst({ select: { gradingScale: true } })
+  const scale = parseGradingScale(settingsRow?.gradingScale)
+
   return NextResponse.json({
     student: {
       id: student.id,
@@ -128,10 +132,10 @@ export async function GET(
     },
     assessments: assessments.map((a) => {
       const attempt = attemptMap.get(a.id)
-      let submissionStatus: "NOT_SUBMITTED" | "SUBMITTED" | "GRADED" = "NOT_SUBMITTED"
-      if (attempt) {
-        submissionStatus = attempt.grade ? "GRADED" : "SUBMITTED"
-      }
+      const score = attempt?.score ?? null
+      const grade = score !== null ? computeGrade(score, a.totalMarks, scale) : null
+      const submissionStatus: "NOT_SUBMITTED" | "SUBMITTED" | "GRADED" =
+        attempt ? (grade ? "GRADED" : "SUBMITTED") : "NOT_SUBMITTED"
       return {
         id: a.id,
         title: a.title,
@@ -142,7 +146,8 @@ export async function GET(
         endsAt: a.endsAt,
         courseCode: a.course.code,
         courseTitle: a.course.title,
-        score: attempt?.score ?? null,
+        score,
+        grade,
         submissionStatus,
       }
     }),

@@ -164,40 +164,6 @@ export async function submitAttempt(attemptId: number, reason?: 'TIMED_OUT' | 'F
     }
   }
 
-  // Check if assessment has any subjective questions
-  const hasSubjective = await prisma.question.count({
-    where: {
-      assessmentId: attempt.assessmentId,
-      section: { type: 'SUBJECTIVE' },
-    },
-  })
-
-  // If no subjective questions, grading is complete — assign final grade now
-  // If there are subjective questions, score is partial (MCQ only) until external grader runs
-  const assessment = await prisma.assessment.findUnique({
-    where: { id: attempt.assessmentId },
-    select: { totalMarks: true },
-  })
-  const totalMarks = assessment?.totalMarks ?? 100
-
-  let grade: string | null = null
-  if (hasSubjective === 0) {
-    // Pure MCQ — grade immediately
-    const percentage = totalMarks > 0 ? (mcqScore / totalMarks) * 100 : 0
-    if (percentage >= 90) grade = 'A+'
-    else if (percentage >= 85) grade = 'A'
-    else if (percentage >= 80) grade = 'A-'
-    else if (percentage >= 75) grade = 'B+'
-    else if (percentage >= 70) grade = 'B'
-    else if (percentage >= 65) grade = 'B-'
-    else if (percentage >= 60) grade = 'C+'
-    else if (percentage >= 55) grade = 'C'
-    else if (percentage >= 50) grade = 'C-'
-    else if (percentage >= 45) grade = 'D+'
-    else if (percentage >= 40) grade = 'D'
-    else grade = 'F'
-  }
-
   // Append the submission reason to the tab switch log so the detail page can show the right message
   const currentAttempt = await prisma.assessmentAttempt.findUnique({
     where: { id: attemptId },
@@ -218,7 +184,6 @@ export async function submitAttempt(attemptId: number, reason?: 'TIMED_OUT' | 'F
       submittedAt: new Date(),
       score: mcqScore,
       tabSwitchLog: logWithReason,
-      ...(grade !== null ? { grade } : {}),
     },
   })
 
