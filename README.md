@@ -68,22 +68,8 @@ npx prisma migrate deploy
 # Regenerate Prisma client after schema changes
 npx prisma generate
 ```
-
-> **Important:** Do not run `prisma migrate dev` for the `GradingResult` and `AnswerFeedback` models — those tables are created by the Django grader's own migrations. Only run `prisma generate` when the schema changes.
-
 ---
 
-## Grading Scale
-
-Grade letters are **not stored** in the database. Only the raw numeric score is persisted. The letter grade is computed at read time using the scale configured by the admin.
-
-**Configure at:** Admin → Settings → Grading Scale
-
-Default scale: A+ ≥ 90%, A ≥ 85%, A- ≥ 80%, B+ ≥ 75%, B ≥ 70%, B- ≥ 65%, C+ ≥ 60%, C ≥ 55%, C- ≥ 50%, D+ ≥ 45%, D ≥ 40%, F ≥ 0%
-
-The admin can add, remove, or rename any grade band. Changes take effect immediately.
-
----
 
 ## Key source files
 
