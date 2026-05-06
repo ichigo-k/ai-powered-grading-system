@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useState, useMemo, useTransition, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, ClipboardList, ArrowUpDown, Send, Eye, EyeOff, Download } from "lucide-react"
+import { ArrowLeft, ClipboardList, ArrowUpDown, Send, Eye, EyeOff, Download, ShieldAlert } from "lucide-react"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import {
@@ -14,7 +14,6 @@ import {
   SheetDescription,
   SheetFooter,
 } from "@/components/ui/sheet"
-import StudentAttemptSheet from "./StudentAttemptSheet"
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -55,6 +54,7 @@ export interface AssessmentResultsData {
     score: number | null
     submittedAt: Date | null
     status: "SUBMITTED" | "GRADED" | "PENDING"
+    plagiarismFlagged?: boolean
   }>
 }
 
@@ -128,13 +128,6 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [selectedFields, setSelectedFields] = useState<string[]>([...ALL_EXPORT_FIELDS])
   const [isExporting, setIsExporting] = useState(false)
-
-  // ─── Student attempt detail sheet ────────────────────────────────────────────
-  const [detailSheet, setDetailSheet] = useState<{
-    open: boolean
-    attemptId: number | null
-    studentName: string
-  }>({ open: false, attemptId: null, studentName: "" })
 
   // ─── Sub-task 10.1: Grading status polling with Page Visibility API ──────────
   useEffect(() => {
@@ -495,6 +488,28 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
             </div>
           )}
 
+          {/* Grade Assessment button — when GRADING (retrigger if stuck) or when NOT_GRADED and CLOSED */}
+          {gradingStatus === "GRADING" && (
+            <button
+              type="button"
+              onClick={handleStartGrading}
+              disabled={isGrading}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#002388] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0B4DBB] transition-colors disabled:opacity-50"
+            >
+              {isGrading ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Starting…
+                </>
+              ) : (
+                <>
+                  <Send size={14} />
+                  Grade Assessment
+                </>
+              )}
+            </button>
+          )}
+
           {/* Grade Assessment button — only when assessment is CLOSED and not yet graded */}
           {gradingStatus === "NOT_GRADED" && submittedCount > 0 && data.status === "CLOSED" && (
             <button
@@ -671,6 +686,9 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-5 py-2.5 text-left"><SortBtn col="name" label="Student" /></th>
+                <th className="px-5 py-2.5 text-left">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Flagged</span>
+                </th>
                 <th className="px-5 py-2.5 text-left"><SortBtn col="class" label="Class" /></th>
                 <th className="px-5 py-2.5 text-left"><SortBtn col="status" label="Status" /></th>
                 <th className="px-5 py-2.5 text-left"><SortBtn col="submittedAt" label="Submitted" /></th>
@@ -683,7 +701,7 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
             <tbody className="divide-y divide-slate-100">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-sm text-slate-400">No students match your search.</td>
+                  <td colSpan={7} className="px-5 py-8 text-center text-sm text-slate-400">No students match your search.</td>
                 </tr>
               ) : rows.map((student) => {
                 const sub = submissionByStudent.get(student.id)
@@ -697,12 +715,20 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
                     className="hover:bg-slate-50/50 transition-colors cursor-pointer"
                     onClick={() => {
                       if (!sub) return
-                      setDetailSheet({ open: true, attemptId: sub.attemptId, studentName: student.name })
+                      router.push(`/lecturer/assessments/${data.id}/results/attempts/${sub.attemptId}`)
                     }}
                   >
                     <td className="px-5 py-3.5">
                       <p className="text-slate-900">{student.name}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">{student.email}</p>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      {sub?.plagiarismFlagged === true && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border bg-red-50 text-red-600 border-red-200">
+                          <ShieldAlert size={11} />
+                          Flagged
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3.5 text-xs text-slate-500">{student.className}</td>
                     <td className="px-5 py-3.5">
@@ -719,21 +745,55 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
                     </td>
                     {/* Sub-task 10.2: Hide scores when grading is not complete */}
                     <td className="px-5 py-3.5 text-right">
-                      {gradingStatus === "GRADED" && sub?.score != null ? (
+                      {gradingStatus === "GRADED" ? (
                         <div className="flex flex-col items-end gap-1">
-                          <span className="font-medium text-slate-900">
-                            {sub.score}
+                          {(() => {
+                            const displayScore = sub?.score ?? 0
+                            const pct = Math.round((displayScore / data.totalMarks) * 100)
+                            const color = pct >= 70 ? "#22c55e" : pct >= 50 ? "#f59e0b" : pct >= 20 ? "#f97316" : "#ef4444"
+                            return (
+                              <>
+                                <span className="font-medium" style={{ color }}>
+                                  {displayScore}
+                                  <span className="text-xs text-slate-400 ml-1">/ {data.totalMarks}</span>
+                                </span>
+                                <div className="w-20 h-1 rounded-full bg-slate-100 overflow-hidden">
+                                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+                                </div>
+                              </>
+                            )
+                          })()}
+                        </div>
+                      ) : sub?.score != null ? (
+                        <div className="flex flex-col items-end gap-1">
+                          {(() => {
+                            const pct = Math.round((sub.score / data.totalMarks) * 100)
+                            const color = pct >= 70 ? "#22c55e" : pct >= 50 ? "#f59e0b" : pct >= 20 ? "#f97316" : "#ef4444"
+                            return (
+                              <>
+                                <span className="font-medium" style={{ color }}>
+                                  {sub.score}
+                                  <span className="text-xs text-slate-400 ml-1">/ {data.totalMarks}</span>
+                                </span>
+                                <div className="w-20 h-1 rounded-full bg-slate-100 overflow-hidden">
+                                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+                                </div>
+                              </>
+                            )
+                          })()}
+                        </div>
+                      ) : !sub ? (
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="font-medium" style={{ color: "#ef4444" }}>
+                            0
                             <span className="text-xs text-slate-400 ml-1">/ {data.totalMarks}</span>
                           </span>
                           <div className="w-20 h-1 rounded-full bg-slate-100 overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-[#002388]"
-                              style={{ width: `${scorePct}%` }}
-                            />
+                            <div className="h-full rounded-full bg-red-400" style={{ width: "0%" }} />
                           </div>
                         </div>
                       ) : (
-                        <span className="text-slate-300">—</span>
+                        <span className="text-xs text-slate-400 italic">Pending</span>
                       )}
                     </td>
                     {/* Sub-task 10.3: Per-attempt re-grade button */}
@@ -766,14 +826,6 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
         )}
       </div>
 
-      {/* Student attempt detail sheet */}
-      <StudentAttemptSheet
-        open={detailSheet.open}
-        assessmentId={data.id}
-        attemptId={detailSheet.attemptId}
-        studentName={detailSheet.studentName}
-        onClose={() => setDetailSheet((s) => ({ ...s, open: false }))}
-      />
     </div>
   )
 }

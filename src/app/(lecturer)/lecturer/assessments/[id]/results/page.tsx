@@ -165,6 +165,15 @@ async function ResultsData({ id }: { id: string }) {
     },
   })
 
+  // Fetch GradingResult rows for this assessment to get plagiarismFlagged per attempt
+  const gradingResults = await prisma.gradingResult.findMany({
+    where: { assessmentId },
+    select: { attemptId: true, plagiarismFlagged: true },
+  })
+  const plagiarismByAttemptId = new Map(
+    gradingResults.map((gr) => [gr.attemptId, gr.plagiarismFlagged])
+  )
+
   // Score visibility gating:
   // - If assessment has SUBJECTIVE sections AND gradingStatus is NOT 'GRADED', hide score (null)
   // - If assessment has no SUBJECTIVE sections (MCQ-only), always show score
@@ -188,6 +197,7 @@ async function ResultsData({ id }: { id: string }) {
         score: scoreVisible ? attempt.score : null,
         submittedAt: attempt.submittedAt,
         status: assessment.gradingStatus === "GRADED" ? "GRADED" : "SUBMITTED",
+        plagiarismFlagged: plagiarismByAttemptId.get(attempt.id) ?? false,
       })
     }
   }

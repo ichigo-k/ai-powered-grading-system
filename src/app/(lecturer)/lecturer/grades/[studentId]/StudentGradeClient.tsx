@@ -80,18 +80,19 @@ function formatDate(iso: string) {
 }
 
 function ScoreBadge({ score, total }: { score: number | null; total: number }) {
-  if (score === null) {
-    return <span className="text-xs text-slate-400 italic">—</span>
-  }
-  const pct = Math.round((score / total) * 100)
+  const displayScore = score ?? 0
+  const pct = total > 0 ? Math.round((displayScore / total) * 100) : 0
   const color =
-    pct >= 70 ? "text-green-600" : pct >= 50 ? "text-amber-600" : "text-red-600"
+    pct >= 70 ? "#22c55e" :
+    pct >= 50 ? "#f59e0b" :
+    pct >= 20 ? "#f97316" :
+    "#ef4444"
   return (
     <div className="text-right">
-      <span className={cn("text-sm font-bold", color)}>
-        {score}/{total}
+      <span className="text-sm font-bold" style={{ color }}>
+        {displayScore}/{total}
       </span>
-      <span className={cn("text-xs ml-1", color)}>({pct}%)</span>
+      <span className="text-xs ml-1" style={{ color }}>({pct}%)</span>
     </div>
   )
 }
@@ -163,7 +164,7 @@ export default function StudentGradeClient({ studentId }: { studentId: number })
   const notSubmitted = assessments.filter((a) => a.submissionStatus === "NOT_SUBMITTED")
 
   const totalEarned = graded.reduce((s, a) => s + (a.score ?? 0), 0)
-  const totalPossible = graded.reduce((s, a) => s + a.totalMarks, 0)
+  const totalPossible = assessments.reduce((s, a) => s + a.totalMarks, 0)  // all assessments, not just graded
   const overallPct = totalPossible > 0 ? Math.round((totalEarned / totalPossible) * 100) : null
 
   return (
@@ -211,7 +212,7 @@ export default function StudentGradeClient({ studentId }: { studentId: number })
             <div className="text-right shrink-0">
               <p className="text-3xl font-bold text-slate-900">{overallPct}%</p>
               <p className="text-xs text-slate-400 mt-0.5">
-                {totalEarned}/{totalPossible} marks across {graded.length} graded
+                {totalEarned}/{totalPossible} marks across {assessments.length} assessments
               </p>
             </div>
           )}
