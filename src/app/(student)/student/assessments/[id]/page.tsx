@@ -15,6 +15,7 @@ import {
 import { getSession } from "@/lib/session"
 import { prisma } from "@/lib/prisma"
 import { getAssessmentWithQuestions, getStudentAttempts } from "@/lib/student-queries"
+import { computeGrade, parseGradingScale } from "@/lib/grading-scale"
 import AssessmentEntryClient from "./AssessmentEntryClient"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -61,10 +62,17 @@ export default async function AssessmentDetailPage({
   const studentId = user?.id ?? null
 
   // Fetch data
-  const assessment = await getAssessmentWithQuestions(assessmentId)
+  const assessment = await getAssessmentWithQuestions(assessmentId, studentId ?? undefined)
   if (!assessment) notFound()
 
   const attempts = studentId ? await getStudentAttempts(studentId, assessmentId) : []
+
+  // Fetch resultsReleased and gradingStatus separately (not included in getAssessmentWithQuestions)
+  const assessmentMeta = await prisma.assessment.findUnique({
+    where: { id: assessmentId },
+    select: { resultsReleased: true, gradingStatus: true },
+  })
+  const resultsReleased = assessmentMeta?.resultsReleased ?? false
 
   // If there's an active IN_PROGRESS attempt, redirect straight to it
   const activeAttempt = attempts.find((a) => a.status === "IN_PROGRESS") ?? null
@@ -80,6 +88,14 @@ export default async function AssessmentDetailPage({
   const latestSubmitted = attempts
     .filter((a) => a.status === "SUBMITTED" || a.status === "TIMED_OUT")
     .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0))[0] ?? null
+
+  // Compute grade letter — only when results are released and a score exists
+  let grade: string | null = null
+  if (resultsReleased && latestSubmitted?.score != null) {
+    const settingsRow = await prisma.systemSettings.findFirst({ select: { gradingScale: true } })
+    const scale = parseGradingScale(settingsRow?.gradingScale)
+    grade = computeGrade(latestSubmitted.score, assessment.totalMarks, scale)
+  }
 
   // Determine the forced-submit reason from the tab switch log
   type LogEntry = { event?: string; timestamp?: string }
@@ -269,6 +285,22 @@ export default async function AssessmentDetailPage({
                 </p>
               )}
             </div>
+            {/* Results section — only shown when results are released */}
+            {resultsReleased && latestSubmitted?.score != null ? (
+              <div className="mt-3 rounded-lg border border-green-100 bg-green-50 px-4 py-3 text-center">
+                <p className="text-xs text-green-600 font-medium">Your Score</p>
+                <p className="text-2xl font-bold text-green-700 mt-1">
+                  {latestSubmitted.score} <span className="text-sm font-normal text-green-600">/ {assessment.totalMarks}</span>
+                </p>
+                {grade && (
+                  <p className="text-sm font-semibold text-green-700 mt-1">Grade: {grade}</p>
+                )}
+              </div>
+            ) : !resultsReleased && hasSubmitted ? (
+              <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-center">
+                <p className="text-xs text-slate-500">Results have not been released yet</p>
+              </div>
+            ) : null}
             <Link
               href="/student/assessments"
               className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors"
