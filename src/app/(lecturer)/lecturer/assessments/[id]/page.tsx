@@ -95,11 +95,15 @@ async function AssessmentDetailData({ id }: { id: string }) {
 
   if (!raw || raw.lecturerId !== user.id) notFound()
 
+  // Auto-close if the end date has passed but status is still PUBLISHED
+  const { autoCloseIfExpired } = await import('@/lib/auto-close-assessment')
+  const resolvedStatus = await autoCloseIfExpired(raw)
+
   const assessment: AssessmentWithDetails = {
     id: raw.id,
     title: raw.title,
     type: raw.type as AssessmentWithDetails["type"],
-    status: raw.status as AssessmentWithDetails["status"],
+    status: resolvedStatus as AssessmentWithDetails["status"],
     courseId: raw.courseId,
     courseCode: raw.course.code,
     courseTitle: raw.course.title,

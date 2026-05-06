@@ -111,6 +111,10 @@ async function ResultsData({ id }: { id: string }) {
   if (!assessment || assessment.lecturerId !== user.id) notFound()
   if (assessment.status === "DRAFT") redirect(`/lecturer/assessments/${assessmentId}`)
 
+  // Auto-close if the end date has passed but status is still PUBLISHED
+  const { autoCloseIfExpired } = await import('@/lib/auto-close-assessment')
+  const resolvedStatus = await autoCloseIfExpired(assessment) as AssessmentResultsData["status"]
+
   const enrolledStudents: AssessmentResultsData["enrolledStudents"] = []
   const seen = new Set<number>()
   for (const ac of assessment.classes) {
@@ -131,7 +135,7 @@ async function ResultsData({ id }: { id: string }) {
     id: assessment.id,
     title: assessment.title,
     type: assessment.type as AssessmentResultsData["type"],
-    status: assessment.status as AssessmentResultsData["status"],
+    status: resolvedStatus,
     courseCode: assessment.course.code,
     courseTitle: assessment.course.title,
     totalMarks: assessment.totalMarks,
@@ -144,15 +148,16 @@ async function ResultsData({ id }: { id: string }) {
     submissions: [],
   }
 
-  // Fetch all attempts for this assessment
+  // Fetch all attempts for this assessment — pick highest score per student
   const attempts = await prisma.assessmentAttempt.findMany({
     where: {
       assessmentId,
       studentId: { in: enrolledStudents.map((s) => s.id) },
       status: { in: ["SUBMITTED", "TIMED_OUT"] },
     },
-    orderBy: { submittedAt: "desc" },
+    orderBy: { score: "desc" },
     select: {
+      id: true,
       studentId: true,
       score: true,
       submittedAt: true,
@@ -160,16 +165,28 @@ async function ResultsData({ id }: { id: string }) {
     },
   })
 
-  // Map attempts to submissions (latest per student)
+  // Score visibility gating:
+  // - If assessment has SUBJECTIVE sections AND gradingStatus is NOT 'GRADED', hide score (null)
+  // - If assessment has no SUBJECTIVE sections (MCQ-only), always show score
+  // - If gradingStatus is 'GRADED', always show score
+  const hasSubjectiveSections = assessment.sections.some((s) => s.type === "SUBJECTIVE")
+  const scoreVisible = assessment.gradingStatus === "GRADED" || !hasSubjectiveSections
+
+  // Map attempts to submissions — highest score per student (nulls last)
   const submissionMap = new Map<number, AssessmentResultsData["submissions"][number]>()
   for (const attempt of attempts) {
-    if (!submissionMap.has(attempt.studentId)) {
+    const existing = submissionMap.get(attempt.studentId)
+    // Keep the highest non-null score; if scores are equal or both null, keep first seen
+    const isHigher =
+      !existing ||
+      (attempt.score !== null &&
+        (existing.score === null || attempt.score > (existing.score ?? -Infinity)))
+    if (isHigher) {
       submissionMap.set(attempt.studentId, {
         studentId: attempt.studentId,
-        score: attempt.score,
+        attemptId: attempt.id,
+        score: scoreVisible ? attempt.score : null,
         submittedAt: attempt.submittedAt,
-        // An attempt is considered GRADED when the grader has written a final score
-        // (gradingStatus === GRADED on the assessment is the reliable signal)
         status: assessment.gradingStatus === "GRADED" ? "GRADED" : "SUBMITTED",
       })
     }

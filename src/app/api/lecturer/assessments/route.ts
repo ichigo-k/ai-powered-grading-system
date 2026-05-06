@@ -25,6 +25,10 @@ export async function GET() {
   const lecturerId = await getLecturerId(session.user.email!)
   if (!lecturerId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
+  // Close any PUBLISHED assessments whose end date has passed before returning the list
+  const { autoCloseExpiredForLecturer } = await import('@/lib/auto-close-assessment')
+  await autoCloseExpiredForLecturer(lecturerId)
+
   const assessments = await prisma.assessment.findMany({
     where: { lecturerId },
     include: {

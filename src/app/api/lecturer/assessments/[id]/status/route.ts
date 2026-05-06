@@ -8,6 +8,48 @@ async function getLecturerId(email: string): Promise<number | null> {
   return user?.id ?? null
 }
 
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth()
+  if (!session || session.user.role !== "LECTURER") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  const lecturerId = await getLecturerId(session.user.email!)
+  if (!lecturerId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const { id } = await params
+  const assessmentId = parseInt(id)
+  if (isNaN(assessmentId)) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  const assessment = await prisma.assessment.findUnique({
+    where: { id: assessmentId },
+    select: { lecturerId: true, gradingStatus: true, resultsReleased: true },
+  })
+
+  if (!assessment || assessment.lecturerId !== lecturerId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+
+  const [totalAttempts, gradedAttempts] = await Promise.all([
+    prisma.assessmentAttempt.count({
+      where: {
+        assessmentId,
+        status: { in: ["SUBMITTED", "TIMED_OUT"] },
+      },
+    }),
+    prisma.gradingResult.count({
+      where: { assessmentId },
+    }),
+  ])
+
+  return NextResponse.json({
+    gradingStatus: assessment.gradingStatus,
+    resultsReleased: assessment.resultsReleased,
+    totalAttempts,
+    gradedAttempts,
+  })
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session || session.user.role !== "LECTURER") {
