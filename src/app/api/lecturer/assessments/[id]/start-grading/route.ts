@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { callGraderBatch } from "@/lib/grader-client"
 
 async function getLecturerId(email: string) {
   const user = await prisma.user.findUnique({ where: { email }, select: { id: true } })
@@ -29,10 +30,26 @@ export async function POST(
   // Verify ownership
   const assessment = await prisma.assessment.findUnique({
     where: { id: assessmentId },
-    select: { lecturerId: true, gradingStatus: true },
+    select: { lecturerId: true, gradingStatus: true, status: true },
   })
   if (!assessment || assessment.lecturerId !== lecturerId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+
+  // Assessment must be CLOSED before grading can begin
+  if (assessment.status !== "CLOSED") {
+    return NextResponse.json(
+      { error: "Assessment must be closed before grading can begin" },
+      { status: 409 }
+    )
+  }
+
+  // Reject if grading is already in progress or completed
+  if (assessment.gradingStatus === "GRADING") {
+    return NextResponse.json({ error: "Grading already in progress" }, { status: 409 })
+  }
+  if (assessment.gradingStatus === "GRADED") {
+    return NextResponse.json({ error: "Assessment has already been graded" }, { status: 409 })
   }
 
   // Set status to GRADING
@@ -41,5 +58,14 @@ export async function POST(
     data: { gradingStatus: "GRADING" },
   })
 
-  return NextResponse.json({ success: true, gradingStatus: "GRADING" })
+  // Fire-and-forget: call the Django grader without awaiting
+  callGraderBatch(assessmentId).catch(async (err) => {
+    await prisma.assessment.update({
+      where: { id: assessmentId },
+      data: { gradingStatus: "NOT_GRADED" },
+    })
+    console.error("Grader batch call failed for assessment", assessmentId, err)
+  })
+
+  return NextResponse.json({ gradingStatus: "GRADING" })
 }
