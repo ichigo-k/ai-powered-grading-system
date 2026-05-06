@@ -144,11 +144,16 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${statusBadge[row.original.status]}`}>
-          {row.original.status}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const a = row.original
+        const effectiveStatus =
+          a.status === "PUBLISHED" && new Date() > new Date(a.endsAt) ? "CLOSED" : a.status
+        return (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${statusBadge[effectiveStatus]}`}>
+            {effectiveStatus}
+          </span>
+        )
+      },
     },
     {
       accessorKey: "classCount",
@@ -185,9 +190,11 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
       cell: ({ row }) => {
         const a = row.original
         const isLoading = isTransitioning === a.id
+        const effectiveStatus =
+          a.status === "PUBLISHED" && new Date() > new Date(a.endsAt) ? "CLOSED" : a.status
         return (
           <div className="flex items-center justify-end gap-1">
-            {a.status === "DRAFT" && (
+            {effectiveStatus === "DRAFT" && (
               <Button
                 size="sm"
                 variant="outline"
@@ -199,7 +206,7 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
                 Publish
               </Button>
             )}
-            {a.status === "PUBLISHED" && (
+            {effectiveStatus === "PUBLISHED" && (
               <Button
                 size="sm"
                 variant="outline"
@@ -222,7 +229,7 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
                 </DropdownMenuItem>
-                {(a.status === "PUBLISHED" || a.status === "CLOSED") && (
+                {(effectiveStatus === "PUBLISHED" || effectiveStatus === "CLOSED") && (
                   <DropdownMenuItem onClick={() => router.push(`/lecturer/assessments/${a.id}/results`)}>
                     <BarChart2 className="mr-2 h-4 w-4" />
                     View Results
@@ -230,11 +237,11 @@ export default function AssessmentsClient({ assessments }: AssessmentsClientProp
                 )}
                 <DropdownMenuItem
                   onClick={() => router.push(`/lecturer/assessments/${a.id}/edit`)}
-                  disabled={a.status !== "DRAFT"}
-                  className={a.status !== "DRAFT" ? "opacity-40 cursor-not-allowed" : ""}
+                  disabled={effectiveStatus !== "DRAFT"}
+                  className={effectiveStatus !== "DRAFT" ? "opacity-40 cursor-not-allowed" : ""}
                 >
                   <Edit2 className="mr-2 h-4 w-4" />
-                  Edit {a.status !== "DRAFT" && <span className="ml-auto text-[10px] text-slate-400">Draft only</span>}
+                  Edit {effectiveStatus !== "DRAFT" && <span className="ml-auto text-[10px] text-slate-400">Draft only</span>}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

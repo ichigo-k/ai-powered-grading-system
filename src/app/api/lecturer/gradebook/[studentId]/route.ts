@@ -93,14 +93,14 @@ export async function GET(
     })
   }
 
-  // Fetch the latest submitted/timed-out attempt per assessment for this student
+  // Fetch all submitted/timed-out attempts per assessment for this student — pick highest score
   const attempts = await prisma.assessmentAttempt.findMany({
     where: {
       studentId: sid,
       assessmentId: { in: assessments.map((a) => a.id) },
       status: { in: ["SUBMITTED", "TIMED_OUT"] },
     },
-    orderBy: { submittedAt: "desc" },
+    orderBy: { score: "desc" },
     select: {
       assessmentId: true,
       score: true,
@@ -109,10 +109,15 @@ export async function GET(
     },
   })
 
-  // Latest attempt per assessment
+  // Highest score per assessment (nulls last)
   const attemptMap = new Map<number, typeof attempts[number]>()
   for (const attempt of attempts) {
-    if (!attemptMap.has(attempt.assessmentId)) {
+    const existing = attemptMap.get(attempt.assessmentId)
+    const isHigher =
+      !existing ||
+      (attempt.score !== null &&
+        (existing.score === null || attempt.score > (existing.score ?? -Infinity)))
+    if (isHigher) {
       attemptMap.set(attempt.assessmentId, attempt)
     }
   }
