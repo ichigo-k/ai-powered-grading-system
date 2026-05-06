@@ -69,7 +69,7 @@ export default async function StudentDashboardPage() {
 							{ label: "Upcoming", value: upcomingCount, icon: Calendar },
 							{ label: "Live now", value: ongoingCount, icon: AlertCircle },
 							{ label: "Completed", value: completedCount, icon: CheckCircle2 },
-							{ label: "Avg. score", value: averageScore != null ? `${averageScore}%` : "—", icon: TrendingUp },
+							{ label: "Avg. score", value: averageScore != null ? `${averageScore.toFixed(2)}%` : "—", icon: TrendingUp },
 						].map((item, i) => (
 							<div key={item.label} className={`flex items-center gap-3 px-5 first:pl-0 last:pr-0 ${i >= 2 ? "mt-4 sm:mt-0 border-t sm:border-t-0 border-slate-100 pt-4 sm:pt-0" : ""}`}>
 								<item.icon size={16} className="text-slate-400 shrink-0" />
@@ -142,7 +142,7 @@ export default async function StudentDashboardPage() {
 										const type = result.type.toUpperCase() as keyof typeof typeStyles;
 										const style = typeStyles[type] ?? { bg: "#F1F5F9", text: "#475569" };
 										const score = result.score ?? 0;
-										const barColor = score >= 85 ? "#22c55e" : score >= 60 ? "#3b82f6" : "#f59e0b";
+										const barColor = score >= 70 ? "#22c55e" : score >= 50 ? "#f59e0b" : score >= 20 ? "#f97316" : "#ef4444";
 										return (
 											<div
 												key={result.id}
@@ -164,7 +164,7 @@ export default async function StudentDashboardPage() {
 															<div className="h-1.5 rounded-full" style={{ width: `${Math.min(score, 100)}%`, background: barColor }} />
 														</div>
 														<p className="text-sm font-semibold text-slate-800 whitespace-nowrap w-12 text-right">
-															{result.score != null ? `${result.score}%` : "—"}
+															{result.score.toFixed(2)}%
 														</p>
 													</div>
 												</div>

@@ -11,10 +11,11 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-function gradeColor(grade: string): { bg: string; text: string } {
-	if (grade.startsWith("A")) return { bg: "#DCFCE7", text: "#16A34A" };
-	if (grade.startsWith("B")) return { bg: "#DBEAFE", text: "#1967D2" };
-	return { bg: "#FEF3C7", text: "#D97706" };
+function gradeColor(pct: number): string {
+	if (pct >= 70) return "#22c55e";   // green
+	if (pct >= 50) return "#f59e0b";   // yellow
+	if (pct >= 20) return "#f97316";   // orange
+	return "#ef4444";                  // red
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -32,6 +33,8 @@ type SerializedAssessmentRow = {
 	durationMinutes: number | null;
 	totalMarks: number;
 	maxAttempts: number;
+	resultsReleased: boolean;
+	gradingStatus: string;
 	sections: { id: number; name: string; type: string; requiredQuestionsCount: number | null }[];
 	latestAttempt: { score: number | null; grade: string | null; attemptNumber: number; status: string } | null;
 };
@@ -272,11 +275,13 @@ export default function AssessmentsClient({ assessments, courses }: Props) {
 						const isCompleted = assessment.status === "completed";
 						const isOngoing   = assessment.status === "ongoing";
 						const style = typeStyles[assessment.type] ?? { bg: "#F1F5F9", text: "#475569" };
-						const score = assessment.latestAttempt?.score ?? null;
-						const grade = assessment.latestAttempt?.grade ?? null;
-						const barColor = score != null
-							? score >= 85 ? "#22c55e" : score >= 60 ? "#3b82f6" : "#f59e0b"
-							: "#94a3b8";
+						const rawScore = assessment.latestAttempt?.score ?? null;
+						// Unsubmitted completed assessments count as 0
+						const score = isCompleted ? (rawScore ?? 0) : rawScore;
+						const grade = isCompleted
+							? (rawScore === null ? "F" : (assessment.latestAttempt?.grade ?? null))
+							: (assessment.latestAttempt?.grade ?? null);
+						const barColor = gradeColor(score ?? 0);
 
 						return (
 							<div
@@ -314,37 +319,29 @@ export default function AssessmentsClient({ assessments, courses }: Props) {
 								</div>
 
 								<div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:gap-1">
-									{isCompleted && grade ? (
+									{isCompleted ? (
 										<>
-											<span
-												className="inline-flex items-center justify-center rounded-lg px-3 py-1 text-sm font-semibold"
-												style={{
-													background: gradeColor(grade).bg,
-													color: gradeColor(grade).text,
-												}}
-											>
-												{grade}
-											</span>
-											{score != null && (
-												<div className="flex flex-col items-end">
-													<p className="text-xs font-semibold text-slate-700">{score}%</p>
-													<div className="mt-1 h-1.5 w-20 rounded-full bg-slate-100">
-														<div
-															className="h-1.5 rounded-full"
-															style={{ width: `${Math.min(score, 100)}%`, background: barColor }}
-														/>
-													</div>
+											<div className="flex flex-col items-end">
+												<p className="text-xs font-semibold" style={{ color: barColor }}>
+													{score}%
+												</p>
+												<div className="mt-1 h-1.5 w-20 rounded-full bg-slate-100">
+													<div
+														className="h-1.5 rounded-full"
+														style={{ width: `${Math.min(score ?? 0, 100)}%`, background: barColor }}
+													/>
 												</div>
+											</div>
+											{assessment.resultsReleased && rawScore != null && (
+												<Link
+													href={`/student/assessments/${assessment.id}/review`}
+													className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold bg-[#002388]/10 text-[#002388] hover:bg-[#002388]/20 transition-colors"
+												>
+													Review Answers
+													<ArrowRight size={12} />
+												</Link>
 											)}
 										</>
-									) : isCompleted ? (
-										<Link
-											href={`/student/assessments/${assessment.id}`}
-											className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
-										>
-											View Details
-											<ArrowRight size={12} />
-										</Link>
 									) : (
 										<>
 											<Link

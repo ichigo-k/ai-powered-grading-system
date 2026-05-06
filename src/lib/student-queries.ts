@@ -28,8 +28,8 @@ type RecentResultItem = {
   type: string
   courseTitle: string
   endsAt: Date
-  score: number | null
-  grade: string | null  // computed from score on read
+  score: number   // 0 if student never submitted
+  grade: string   // computed from score on read
 }
 
 export type StudentAssessmentRow = {
@@ -45,8 +45,11 @@ export type StudentAssessmentRow = {
   durationMinutes: number | null
   totalMarks: number
   maxAttempts: number
+  resultsReleased: boolean
+  gradingStatus: string
   sections: { id: number; name: string; type: string; requiredQuestionsCount: number | null }[]
-  latestAttempt: { score: number | null; grade: string | null; attemptNumber: number; status: string } | null}
+  latestAttempt: { score: number | null; grade: string | null; attemptNumber: number; status: string } | null
+}
 
 export type AssessmentDetail = {
   id: number
@@ -159,13 +162,14 @@ export async function getDashboardData(studentId: number): Promise<DashboardData
 
   const assessments = rows
     .map((r) => r.assessment)
-    .filter((a) => a.status === 'PUBLISHED')
+    .filter((a) => a.status === 'PUBLISHED' || a.status === 'CLOSED')
 
   type Enriched = (typeof assessments)[number] & { derivedStatus: DerivedStatus }
 
   const enriched: Enriched[] = assessments.map((a) => ({
     ...a,
-    derivedStatus: deriveStatus(a.startsAt, a.endsAt, now),
+    // CLOSED assessments are always completed regardless of their date range
+    derivedStatus: a.status === 'CLOSED' ? 'completed' : deriveStatus(a.startsAt, a.endsAt, now),
   }))
 
   const upcomingCount = enriched.filter((a) => a.derivedStatus === 'upcoming').length
@@ -175,7 +179,7 @@ export async function getDashboardData(studentId: number): Promise<DashboardData
   const averageScore = computeAverage(
     enriched
       .filter((a) => a.derivedStatus === 'completed')
-      .map((a) => a.attempts[0]?.score ?? null),
+      .map((a) => a.attempts[0]?.score ?? 0),  // unsubmitted = 0
   )
 
   const upcomingAssessments = sortAndLimit(
@@ -198,14 +202,12 @@ export async function getDashboardData(studentId: number): Promise<DashboardData
   const scale = parseGradingScale(settingsRow?.gradingScale)
 
   const recentResults = sortAndLimit(
-    enriched.filter(
-      (a) => a.derivedStatus === 'completed' && (a.attempts[0]?.score ?? null) !== null,
-    ),
+    enriched.filter((a) => a.derivedStatus === 'completed'),
     'endsAt',
     'desc',
     4,
   ).map((a) => {
-    const score = a.attempts[0]?.score ?? null
+    const score = a.attempts[0]?.score ?? 0  // unsubmitted = 0
     return {
       id: a.id,
       title: a.title,
@@ -213,7 +215,7 @@ export async function getDashboardData(studentId: number): Promise<DashboardData
       courseTitle: a.course.title,
       endsAt: a.endsAt,
       score,
-      grade: score !== null ? computeGrade(score, a.totalMarks, scale) : null,
+      grade: computeGrade(score, a.totalMarks, scale),
     }
   })
 
@@ -246,6 +248,8 @@ export async function getStudentAssessments(studentId: number): Promise<StudentA
           durationMinutes: true,
           totalMarks: true,
           maxAttempts: true,
+          resultsReleased: true,
+          gradingStatus: true,
           course: { select: { title: true, code: true } },
           sections: {
             select: { id: true, name: true, type: true, requiredQuestionsCount: true },
@@ -267,14 +271,15 @@ export async function getStudentAssessments(studentId: number): Promise<StudentA
 
   return rows
     .map((r) => r.assessment)
-    .filter((a) => a.status === 'PUBLISHED')
+    .filter((a) => a.status === 'PUBLISHED' || a.status === 'CLOSED')
     .map((a) => {
       const raw = a.attempts[0] ?? null
       return {
         id: a.id,
         title: a.title,
         type: a.type,
-        status: deriveStatus(a.startsAt, a.endsAt, now),
+        // CLOSED assessments are always completed regardless of their date range
+        status: a.status === 'CLOSED' ? 'completed' : deriveStatus(a.startsAt, a.endsAt, now),
         courseTitle: a.course.title,
         courseCode: a.course.code,
         courseId: a.courseId,
@@ -283,6 +288,8 @@ export async function getStudentAssessments(studentId: number): Promise<StudentA
         durationMinutes: a.durationMinutes,
         totalMarks: a.totalMarks,
         maxAttempts: a.maxAttempts,
+        resultsReleased: a.resultsReleased,
+        gradingStatus: a.gradingStatus,
         sections: a.sections,
         latestAttempt: raw
           ? {
@@ -444,7 +451,7 @@ export async function getScheduleAssessments(studentId: number): Promise<Schedul
 
   return rows
     .map((r) => r.assessment)
-    .filter((a) => a.status === 'PUBLISHED')
+    .filter((a) => a.status === 'PUBLISHED' || a.status === 'CLOSED')
     .map((a) => ({
       id: a.id,
       title: a.title,
@@ -455,7 +462,7 @@ export async function getScheduleAssessments(studentId: number): Promise<Schedul
       endsAt: a.endsAt,
       durationMinutes: a.durationMinutes,
       location: a.location,
-      status: deriveStatus(a.startsAt, a.endsAt, now),
+      status: a.status === 'CLOSED' ? 'completed' : deriveStatus(a.startsAt, a.endsAt, now),
     }))
     .filter((a) => a.status === 'upcoming' || a.status === 'ongoing')
     .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())

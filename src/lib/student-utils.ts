@@ -18,7 +18,8 @@ export function deriveStatus(startsAt: Date, endsAt: Date, now: Date): DerivedSt
 export function computeAverage(scores: (number | null)[]): number | null {
   const nonNull = scores.filter((s): s is number => s !== null)
   if (nonNull.length === 0) return null
-  return nonNull.reduce((sum, s) => sum + s, 0) / nonNull.length
+  const avg = nonNull.reduce((sum, s) => sum + s, 0) / nonNull.length
+  return Math.round(avg * 100) / 100
 }
 
 export function sortAndLimit<T>(items: T[], key: keyof T, dir: 'asc' | 'desc', n: number): T[] {
