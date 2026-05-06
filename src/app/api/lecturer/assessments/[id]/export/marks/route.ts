@@ -163,7 +163,7 @@ export async function GET(
     const grade = attempt.score != null ? computeGrade(score, totalMarks, scale) : "N/A"
 
     const rowData: Record<SupportedField, unknown> = {
-      studentId: attempt.student.id,
+      studentId: attempt.student.email.split('@')[0],
       studentName: attempt.student.name ?? "",
       email: attempt.student.email,
       score: attempt.score ?? 0,

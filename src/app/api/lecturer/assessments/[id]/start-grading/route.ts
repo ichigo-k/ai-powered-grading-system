@@ -44,10 +44,7 @@ export async function POST(
     )
   }
 
-  // Reject if grading is already in progress or completed
-  if (assessment.gradingStatus === "GRADING") {
-    return NextResponse.json({ error: "Grading already in progress" }, { status: 409 })
-  }
+  // Reject only if grading has already completed — allow re-triggering when stuck in GRADING
   if (assessment.gradingStatus === "GRADED") {
     return NextResponse.json({ error: "Assessment has already been graded" }, { status: 409 })
   }
