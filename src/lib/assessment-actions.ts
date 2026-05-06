@@ -108,8 +108,14 @@ export async function logTabSwitch(attemptId: number, timestamp: string): Promis
   const session = await getSession()
   if (!session?.user || session.user.role !== 'STUDENT') return
 
-  const attempt = await prisma.assessmentAttempt.findUnique({ where: { id: attemptId }, select: { tabSwitchLog: true } })
-  if (!attempt) return
+  const studentId = await getStudentId(session.user.email!)
+  if (!studentId) return
+
+  const attempt = await prisma.assessmentAttempt.findUnique({
+    where: { id: attemptId },
+    select: { studentId: true, tabSwitchLog: true },
+  })
+  if (!attempt || attempt.studentId !== studentId) return
 
   const log = Array.isArray(attempt.tabSwitchLog) ? attempt.tabSwitchLog : []
   await prisma.assessmentAttempt.update({
