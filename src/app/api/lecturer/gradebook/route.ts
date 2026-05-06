@@ -16,16 +16,12 @@ export async function GET() {
   const lecturerId = await getLecturerId(session.user.email!)
   if (!lecturerId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  // Get all assessments by this lecturer with their enrolled classes + students
+  // All assessments by this lecturer with enrolled classes + students
   const assessments = await prisma.assessment.findMany({
-    where: { lecturerId },
+    where: { lecturerId, status: { not: "DRAFT" } },
     select: {
       id: true,
-      title: true,
-      type: true,
-      status: true,
       totalMarks: true,
-      startsAt: true,
       course: { select: { id: true, code: true, title: true } },
       classes: {
         select: {
@@ -46,7 +42,37 @@ export async function GET() {
     },
   })
 
-  // Build a map: studentId → { student info, classes, assessments }
+  // Collect all student IDs and assessment IDs
+  const allStudentIds = new Set<number>()
+  const allAssessmentIds = assessments.map((a) => a.id)
+
+  for (const a of assessments) {
+    for (const ac of a.classes) {
+      for (const sp of ac.class.students) {
+        allStudentIds.add(sp.user.id)
+      }
+    }
+  }
+
+  // Fetch best attempt per student per assessment (highest score, SUBMITTED/TIMED_OUT)
+  const attempts = await prisma.assessmentAttempt.findMany({
+    where: {
+      assessmentId: { in: allAssessmentIds },
+      studentId: { in: Array.from(allStudentIds) },
+      status: { in: ["SUBMITTED", "TIMED_OUT"] },
+    },
+    select: { assessmentId: true, studentId: true, score: true },
+    orderBy: { score: "desc" },
+  })
+
+  // Best score per (studentId, assessmentId)
+  const bestScore = new Map<string, number | null>()
+  for (const a of attempts) {
+    const key = `${a.studentId}:${a.assessmentId}`
+    if (!bestScore.has(key)) bestScore.set(key, a.score)
+  }
+
+  // Build student map
   const studentMap = new Map<number, {
     id: number
     name: string
@@ -54,8 +80,10 @@ export async function GET() {
     classId: number
     className: string
     classLevel: number
-    assessmentCount: number
+    assessmentIds: Set<number>
     courseIds: Set<number>
+    totalEarned: number
+    totalPossible: number
   }>()
 
   for (const assessment of assessments) {
@@ -70,13 +98,21 @@ export async function GET() {
             classId: ac.class.id,
             className: ac.class.name,
             classLevel: ac.class.level,
-            assessmentCount: 0,
+            assessmentIds: new Set(),
             courseIds: new Set(),
+            totalEarned: 0,
+            totalPossible: 0,
           })
         }
         const entry = studentMap.get(sid)!
-        entry.assessmentCount++
-        entry.courseIds.add(assessment.course.id)
+        if (!entry.assessmentIds.has(assessment.id)) {
+          entry.assessmentIds.add(assessment.id)
+          entry.courseIds.add(assessment.course.id)
+          // Add to totals — unsubmitted counts as 0
+          const score = bestScore.get(`${sid}:${assessment.id}`) ?? 0
+          entry.totalEarned += score
+          entry.totalPossible += assessment.totalMarks
+        }
       }
     }
   }
@@ -103,13 +139,22 @@ export async function GET() {
     classId: s.classId,
     className: s.className,
     classLevel: s.classLevel,
-    assessmentCount: s.assessmentCount,
+    assessmentCount: s.assessmentIds.size,
     courseIds: Array.from(s.courseIds),
+    totalEarned: s.totalEarned,
+    totalPossible: s.totalPossible,
+    overallPct: s.totalPossible > 0
+      ? Math.round((s.totalEarned / s.totalPossible) * 100)
+      : null,
   }))
+
+  // Unique levels for filter
+  const levels = Array.from(new Set(students.map((s) => s.classLevel))).sort((a, b) => a - b)
 
   return NextResponse.json({
     students,
     courses: Array.from(coursesMap.values()),
     classes: Array.from(classesMap.values()),
+    levels,
   })
 }
