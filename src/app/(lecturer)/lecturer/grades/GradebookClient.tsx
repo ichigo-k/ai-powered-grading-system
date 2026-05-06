@@ -25,8 +25,6 @@ import {
   ChevronsRight,
   X,
   ExternalLink,
-  GraduationCap,
-  BookOpen,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import {
@@ -59,9 +57,6 @@ interface Student {
   classLevel: number
   assessmentCount: number
   courseIds: number[]
-  totalEarned: number
-  totalPossible: number
-  overallPct: number | null
 }
 
 interface Course {
@@ -83,38 +78,7 @@ interface GradebookData {
   levels: number[]
 }
 
-// ─── Score color helper ───────────────────────────────────────────────────────
 
-function scoreColor(pct: number): string {
-  if (pct >= 70) return "#22c55e"
-  if (pct >= 50) return "#f59e0b"
-  if (pct >= 20) return "#f97316"
-  return "#ef4444"
-}
-
-// ─── Score cell ───────────────────────────────────────────────────────────────
-
-function ScoreCell({ earned, possible, pct }: { earned: number; possible: number; pct: number | null }) {
-  if (possible === 0) return <span className="text-xs text-slate-400">—</span>
-  const displayPct = pct ?? 0
-  const color = scoreColor(displayPct)
-  return (
-    <div className="flex items-center gap-3 min-w-[140px]">
-      <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${displayPct}%`, background: color }}
-        />
-      </div>
-      <span className="text-xs font-semibold tabular-nums w-10 text-right" style={{ color }}>
-        {displayPct}%
-      </span>
-      <span className="text-xs text-slate-400 tabular-nums whitespace-nowrap">
-        {earned}/{possible}
-      </span>
-    </div>
-  )
-}
 
 // ─── Sort button ──────────────────────────────────────────────────────────────
 
@@ -212,19 +176,7 @@ function buildColumns(router: ReturnType<typeof useRouter>): ColumnDef<Student>[
         </span>
       ),
     },
-    {
-      id: "overallPct",
-      accessorKey: "overallPct",
-      header: ({ column }) => <SortHeader label="Overall Score" column={column} />,
-      cell: ({ row }) => (
-        <ScoreCell
-          earned={row.original.totalEarned}
-          possible={row.original.totalPossible}
-          pct={row.original.overallPct}
-        />
-      ),
-      sortingFn: (a, b) => (a.original.overallPct ?? -1) - (b.original.overallPct ?? -1),
-    },
+
     {
       id: "actions",
       header: () => null,
@@ -325,36 +277,7 @@ export default function GradebookClient() {
   return (
     <div className="space-y-5">
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#002388]/8">
-            <Users className="h-4.5 w-4.5 text-[#002388]" size={18} />
-          </div>
-          <div>
-            <p className="text-xl font-bold text-slate-900">{totalStudents}</p>
-            <p className="text-xs text-slate-400">Total students</p>
-          </div>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-            <BookOpen className="h-4.5 w-4.5 text-emerald-600" size={18} />
-          </div>
-          <div>
-            <p className="text-xl font-bold text-slate-900">{data.courses.length}</p>
-            <p className="text-xs text-slate-400">Courses</p>
-          </div>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50">
-            <GraduationCap className="h-4.5 w-4.5 text-violet-600" size={18} />
-          </div>
-          <div>
-            <p className="text-xl font-bold text-slate-900">{data.classes.length}</p>
-            <p className="text-xs text-slate-400">Classes</p>
-          </div>
-        </div>
-      </div>
+
 
       {/* Filter bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
