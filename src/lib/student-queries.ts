@@ -148,7 +148,7 @@ export async function getDashboardData(studentId: number): Promise<DashboardData
           course: { select: { title: true } },
           attempts: {
             where: { studentId },
-            orderBy: { attemptNumber: 'desc' },
+            orderBy: { score: 'desc' },
             take: 1,
             select: { score: true, status: true },
           },
@@ -252,7 +252,7 @@ export async function getStudentAssessments(studentId: number): Promise<StudentA
           },
           attempts: {
             where: { studentId },
-            orderBy: { attemptNumber: 'desc' },
+            orderBy: { score: 'desc' },
             take: 1,
             select: { score: true, attemptNumber: true, status: true },
           },
@@ -296,7 +296,20 @@ export async function getStudentAssessments(studentId: number): Promise<StudentA
     })
 }
 
-export async function getAssessmentWithQuestions(assessmentId: number): Promise<AssessmentDetail | null> {
+export async function getAssessmentWithQuestions(assessmentId: number, studentId?: number): Promise<AssessmentDetail | null> {
+  // If a studentId is provided, verify enrollment before fetching full details.
+  // This prevents students from viewing assessments for classes they are not in.
+  if (studentId !== undefined) {
+    const enrolled = await prisma.assessmentClass.findFirst({
+      where: {
+        assessmentId,
+        class: { students: { some: { id: studentId } } },
+      },
+      select: { id: true },
+    })
+    if (!enrolled) return null
+  }
+
   const assessment = await prisma.assessment.findUnique({
     where: { id: assessmentId },
     select: {

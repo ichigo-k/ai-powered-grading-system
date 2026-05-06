@@ -82,7 +82,7 @@ export default async function AttemptPage({
     redirect(`/student/assessments/${assessmentId}`)
   }
 
-  const assessment = await getAssessmentWithQuestions(assessmentId)
+  const assessment = await getAssessmentWithQuestions(assessmentId, studentId)
   if (!assessment) {
     redirect(`/student/assessments/${assessmentId}`)
   }

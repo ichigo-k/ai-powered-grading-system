@@ -1,8 +1,34 @@
 import { Suspense } from "react"
-import { Library } from "lucide-react"
+import { notFound, redirect } from "next/navigation"
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 import BankDetailClient from "./BankDetailClient"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import LoadingLogo from "@/components/ui/LoadingLogo"
+
+async function BankDetailData({ id }: { id: string }) {
+  const session = await auth()
+  if (!session || session.user.role !== "LECTURER") redirect("/")
+
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email! },
+    select: { id: true },
+  })
+  if (!user) redirect("/")
+
+  const bankId = parseInt(id)
+  if (isNaN(bankId)) notFound()
+
+  const bank = await prisma.questionBank.findUnique({
+    where: { id: bankId },
+    select: { lecturerId: true },
+  })
+
+  // Return 404 — don't reveal whether the bank exists at all
+  if (!bank || bank.lecturerId !== user.id) notFound()
+
+  return <BankDetailClient bankId={bankId} />
+}
 
 export default async function BankDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -20,7 +46,7 @@ export default async function BankDetailPage({ params }: { params: Promise<{ id:
           </div>
         }
       >
-        <BankDetailClient bankId={parseInt(id)} />
+        <BankDetailData id={id} />
       </Suspense>
     </div>
   )
