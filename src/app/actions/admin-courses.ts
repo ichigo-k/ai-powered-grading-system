@@ -1,11 +1,20 @@
 "use server";
 
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { logAction } from "@/lib/audit";
 
+async function requireAdmin() {
+  const session = await auth();
+  if (!session || session.user.role !== "ADMIN") {
+    throw new Error("Forbidden");
+  }
+}
+
 export async function createCourseAction(formData: FormData) {
   try {
+    await requireAdmin();
     const code = formData.get("code") as string;
     const title = formData.get("title") as string;
     const credits = parseInt(formData.get("credits") as string);
@@ -33,6 +42,7 @@ export async function createCourseAction(formData: FormData) {
 
 export async function updateCourseAction(courseId: number, formData: FormData) {
   try {
+    await requireAdmin();
     const code = formData.get("code") as string;
     const title = formData.get("title") as string;
     const credits = parseInt(formData.get("credits") as string);
@@ -58,6 +68,7 @@ export async function updateCourseAction(courseId: number, formData: FormData) {
 
 export async function deleteCourseAction(courseId: number) {
   try {
+    await requireAdmin();
     const deleted = await prisma.course.delete({
       where: { id: courseId },
     });
@@ -77,6 +88,7 @@ export async function deleteCourseAction(courseId: number) {
 
 export async function toggleCourseClassAction(courseId: number, classId: number, isAssigned: boolean) {
   try {
+    await requireAdmin();
     if (isAssigned) {
       await prisma.course.update({
         where: { id: courseId },
@@ -106,6 +118,7 @@ export async function toggleCourseClassAction(courseId: number, classId: number,
 
 export async function toggleCourseLecturerAction(courseId: number, lecturerId: number, isAssigned: boolean) {
   try {
+    await requireAdmin();
     if (isAssigned) {
       await prisma.course.update({
         where: { id: courseId },
@@ -134,6 +147,7 @@ export async function toggleCourseLecturerAction(courseId: number, lecturerId: n
 
 export async function updateCourseAssignmentsAction(courseId: number, lecturerIds: number[], classIds: number[]) {
   try {
+    await requireAdmin();
     const updated = await prisma.course.update({
       where: { id: courseId },
       data: {

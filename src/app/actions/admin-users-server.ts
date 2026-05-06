@@ -1,12 +1,21 @@
 "use server";
 
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { UserStatus } from "@prisma/client";
 import { logAction } from "@/lib/audit";
 
+async function requireAdmin() {
+  const session = await auth();
+  if (!session || session.user.role !== "ADMIN") {
+    throw new Error("Forbidden");
+  }
+}
+
 export async function toggleUserStatusAction(userId: number, currentStatus: UserStatus) {
   try {
+    await requireAdmin();
     const newStatus = currentStatus === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
     await prisma.user.update({
       where: { id: userId },
@@ -29,6 +38,7 @@ export async function toggleUserStatusAction(userId: number, currentStatus: User
 
 export async function deleteUserAction(userId: number) {
   try {
+    await requireAdmin();
     // Delete profiles first if they don't have cascade (Prisma handles this based on schema usually)
     // But here they are linked by ID
     await prisma.$transaction([
@@ -54,6 +64,7 @@ export async function deleteUserAction(userId: number) {
 
 export async function updateUserAction(userId: number, formData: FormData) {
   try {
+    await requireAdmin();
     const name = formData.get("name") as string;
     const email = formData.get("email") as string;
     
@@ -103,6 +114,7 @@ export async function updateUserAction(userId: number, formData: FormData) {
 
 export async function reassignClassAction(userId: number, classId: number) {
   try {
+    await requireAdmin();
     await prisma.studentProfile.update({
       where: { id: userId },
       data: { classId },

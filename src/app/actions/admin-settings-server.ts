@@ -1,9 +1,17 @@
 "use server";
 
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { logAction } from "@/lib/audit";
 import { DEFAULT_GRADING_SCALE, type GradeEntry } from "@/lib/grading-scale";
+
+async function requireAdmin() {
+  const session = await auth();
+  if (!session || session.user.role !== "ADMIN") {
+    throw new Error("Forbidden");
+  }
+}
 
 export async function saveSystemSettingsAction(data: {
 	academicYear: string;
@@ -12,6 +20,7 @@ export async function saveSystemSettingsAction(data: {
 	gradingScale: GradeEntry[];
 }) {
 	try {
+		await requireAdmin();
 
 		const settings = await prisma.systemSettings.upsert({
 			where: { id: 1 },
@@ -62,6 +71,7 @@ export async function getSystemSettingsAction() {
 
 export async function clearAuditLogsAction() {
 	try {
+		await requireAdmin();
 		await prisma.auditLog.deleteMany({});
 		await logAction(
 			"SYSTEM_LOGS_CLEARED",
