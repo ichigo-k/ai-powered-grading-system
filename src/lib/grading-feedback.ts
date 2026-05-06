@@ -29,7 +29,6 @@ export type AttemptGradingDetail = {
   attemptId: number
   assessmentId: number
   score: number
-  grade: string
   plagiarismFlagged: boolean
   gradedAt: Date
   errorNotes: string
@@ -60,7 +59,6 @@ export async function getAttemptGradingDetail(
     attemptId: result.attemptId,
     assessmentId: result.assessmentId,
     score: result.score,
-    grade: result.grade,
     plagiarismFlagged: result.plagiarismFlagged,
     gradedAt: result.gradedAt,
     errorNotes: result.errorNotes,
@@ -97,7 +95,6 @@ export async function getAssessmentGradingResults(
     attemptId: result.attemptId,
     assessmentId: result.assessmentId,
     score: result.score,
-    grade: result.grade,
     plagiarismFlagged: result.plagiarismFlagged,
     gradedAt: result.gradedAt,
     errorNotes: result.errorNotes,
