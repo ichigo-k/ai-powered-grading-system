@@ -1,10 +1,20 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useMemo, useTransition } from "react"
-import { ArrowLeft, ClipboardList, ArrowUpDown, Send, Eye } from "lucide-react"
+import { useState, useMemo, useTransition, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, ClipboardList, ArrowUpDown, Send, Eye, EyeOff, Download } from "lucide-react"
 import { format } from "date-fns"
 import { toast } from "sonner"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/sheet"
+import StudentAttemptSheet from "./StudentAttemptSheet"
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -41,6 +51,7 @@ export interface AssessmentResultsData {
   }>
   submissions: Array<{
     studentId: number
+    attemptId: number
     score: number | null
     submittedAt: Date | null
     status: "SUBMITTED" | "GRADED" | "PENDING"
@@ -80,16 +91,93 @@ function StatTile({ value, label }: { value: React.ReactNode; label: string }) {
 type SortKey = "name" | "class" | "status" | "score" | "submittedAt"
 type SortDir = "asc" | "desc"
 
+// ─── Export constants ─────────────────────────────────────────────────────────
+
+const ALL_EXPORT_FIELDS = [
+  'studentId', 'studentName', 'email', 'score', 'totalMarks',
+  'percentage', 'grade', 'attemptNumber', 'submittedAt', 'plagiarismFlagged',
+] as const
+
+const EXPORT_FIELD_LABELS: Record<string, string> = {
+  studentId: 'Student ID',
+  studentName: 'Student Name',
+  email: 'Email',
+  score: 'Score',
+  totalMarks: 'Total Marks',
+  percentage: 'Percentage (%)',
+  grade: 'Grade',
+  attemptNumber: 'Attempt #',
+  submittedAt: 'Submitted At',
+  plagiarismFlagged: 'Plagiarism Flagged',
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AssessmentResultsView({ data }: { data: AssessmentResultsData }) {
+  const router = useRouter()
   const [sortKey, setSortKey] = useState<SortKey>("name")
   const [sortDir, setSortDir] = useState<SortDir>("asc")
   const [search, setSearch] = useState("")
   const [isGrading, startGrading] = useTransition()
   const [isReleasing, startReleasing] = useTransition()
+  const [isUnreleasing, startUnreleasing] = useTransition()
   const [gradingStatus, setGradingStatus] = useState(data.gradingStatus)
   const [resultsReleased, setResultsReleased] = useState(data.resultsReleased)
+  const [pollingError, setPollingError] = useState<string | null>(null)
+  const [regradingAttemptId, setRegradingAttemptId] = useState<number | null>(null)
+  const [showExportDialog, setShowExportDialog] = useState(false)
+  const [selectedFields, setSelectedFields] = useState<string[]>([...ALL_EXPORT_FIELDS])
+  const [isExporting, setIsExporting] = useState(false)
+
+  // ─── Student attempt detail sheet ────────────────────────────────────────────
+  const [detailSheet, setDetailSheet] = useState<{
+    open: boolean
+    attemptId: number | null
+    studentName: string
+  }>({ open: false, attemptId: null, studentName: "" })
+
+  // ─── Sub-task 10.1: Grading status polling with Page Visibility API ──────────
+  useEffect(() => {
+    if (gradingStatus !== "GRADING") return
+
+    let consecutiveFailures = 0
+    let intervalId: ReturnType<typeof setInterval> | null = null
+
+    async function poll() {
+      if (document.visibilityState === "hidden") return
+      try {
+        const res = await fetch(`/api/lecturer/assessments/${data.id}/status`)
+        if (!res.ok) throw new Error(`Status ${res.status}`)
+        const json = await res.json()
+        consecutiveFailures = 0
+        if (json.gradingStatus === "GRADED") {
+          setGradingStatus("GRADED")
+          if (intervalId) clearInterval(intervalId)
+          router.refresh()
+        }
+      } catch {
+        consecutiveFailures++
+        if (consecutiveFailures >= 3) {
+          if (intervalId) clearInterval(intervalId)
+          setPollingError("Unable to check grading status. Please refresh the page manually.")
+        }
+      }
+    }
+
+    intervalId = setInterval(poll, 15_000)
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        poll() // immediate poll on tab focus
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      if (intervalId) clearInterval(intervalId)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
+  }, [gradingStatus, data.id, router])
 
   const submittedCount = data.submissions.length
   const gradedCount = data.submissions.filter((s) => s.status === "GRADED").length
@@ -222,7 +310,7 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        toast.error(body.error === "Grading not complete"
+        toast.error(body.error === "Cannot release results before grading is complete"
           ? "Grading is not complete yet."
           : "Failed to release results.")
         return
@@ -232,8 +320,142 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
     })
   }
 
+  // ─── Sub-task 10.3: Un-release results ──────────────────────────────────────
+  function handleUnreleaseResults() {
+    startUnreleasing(async () => {
+      const res = await fetch(`/api/lecturer/assessments/${data.id}/unrelease-results`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        toast.error("Failed to un-release results.")
+        return
+      }
+      setResultsReleased(false)
+      toast.success("Results hidden — students can no longer see their scores.")
+    })
+  }
+
+  // ─── Sub-task 10.3: Per-attempt re-grade ────────────────────────────────────
+  async function handleRegrade(attemptId: number) {
+    setRegradingAttemptId(attemptId)
+    try {
+      const res = await fetch(
+        `/api/lecturer/assessments/${data.id}/attempts/${attemptId}/regrade`,
+        { method: "POST" }
+      )
+      if (res.status === 429) {
+        const body = await res.json()
+        toast.error(`Re-grading is rate limited. Try again in ${body.retryAfterSeconds} seconds.`)
+        return
+      }
+      if (!res.ok) {
+        toast.error("Re-grading failed. Please try again.")
+        return
+      }
+      toast.success("Re-grading complete.")
+      router.refresh()
+    } finally {
+      setRegradingAttemptId(null)
+    }
+  }
+
+  // ─── Export marks ────────────────────────────────────────────────────────────
+  async function handleExport() {
+    setIsExporting(true)
+    try {
+      // Omit the fields param entirely when all fields are selected (or none chosen),
+      // so the API defaults to all fields in canonical order.
+      const allSelected =
+        selectedFields.length === 0 ||
+        selectedFields.length === ALL_EXPORT_FIELDS.length
+      let url = `/api/lecturer/assessments/${data.id}/export/marks`
+      if (!allSelected) {
+        const params = new URLSearchParams()
+        for (const f of selectedFields) params.append('fields', f)
+        url += `?${params.toString()}`
+      }
+      const res = await fetch(url)
+      if (!res.ok) {
+        toast.error('Failed to export marks. Please try again.')
+        return
+      }
+      const blob = await res.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objectUrl
+      a.download = `marks-${data.id}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(objectUrl)
+      setShowExportDialog(false)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-5xl pb-16 space-y-6">
+
+      {/* Export Marks sheet */}
+      <Sheet open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <SheetContent side="right" className="flex flex-col w-full sm:max-w-sm p-0">
+          <SheetHeader className="px-6 py-5 border-b border-slate-100 shrink-0">
+            <SheetTitle>Export Marks</SheetTitle>
+            <SheetDescription>Select columns to include in the export.</SheetDescription>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+            <div className="flex flex-col gap-3">
+              {ALL_EXPORT_FIELDS.map((field) => (
+                <label key={field} className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedFields.includes(field)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedFields((prev) => [...prev, field])
+                      } else {
+                        setSelectedFields((prev) => prev.filter((f) => f !== field))
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-slate-300 accent-[#002388]"
+                  />
+                  <span className="text-sm text-slate-700">{EXPORT_FIELD_LABELS[field]}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <SheetFooter className="px-6 py-4 border-t border-slate-100 shrink-0 flex-row justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowExportDialog(false)}
+              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={isExporting || selectedFields.length === 0}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#002388] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0B4DBB] transition-colors disabled:opacity-50"
+            >
+              {isExporting ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Exporting…
+                </>
+              ) : (
+                <>
+                  <Download size={14} />
+                  Export
+                </>
+              )}
+            </button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {/* Top nav */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -266,8 +488,15 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
             </div>
           )}
 
-          {/* Grade Assessment button — only when not yet triggered */}
-          {gradingStatus === "NOT_GRADED" && submittedCount > 0 && (
+          {/* Sub-task 10.1: Polling error display */}
+          {pollingError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
+              {pollingError}
+            </div>
+          )}
+
+          {/* Grade Assessment button — only when assessment is CLOSED and not yet graded */}
+          {gradingStatus === "NOT_GRADED" && submittedCount > 0 && data.status === "CLOSED" && (
             <button
               type="button"
               onClick={handleStartGrading}
@@ -286,6 +515,13 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
                 </>
               )}
             </button>
+          )}
+
+          {/* Hint when assessment is still open — grading not available yet */}
+          {gradingStatus === "NOT_GRADED" && submittedCount > 0 && data.status === "PUBLISHED" && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+              Close the assessment to enable grading
+            </span>
           )}
 
           {/* Release Results button — only when grading done and not yet released */}
@@ -310,12 +546,46 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
             </button>
           )}
 
+          {/* Sub-task 10.3: Un-release Results button — only when results are released */}
+          {resultsReleased && (
+            <button
+              type="button"
+              onClick={handleUnreleaseResults}
+              disabled={isUnreleasing}
+              className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 transition-colors disabled:opacity-50"
+            >
+              {isUnreleasing ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-red-400 border-t-transparent" />
+                  Un-releasing…
+                </>
+              ) : (
+                <>
+                  <EyeOff size={14} />
+                  Un-release Results
+                </>
+              )}
+            </button>
+          )}
+
           {/* Released badge */}
           {resultsReleased && (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700">
               <span className="h-2 w-2 rounded-full bg-green-500" />
               Results released to students
             </span>
+          )}
+
+          {/* Export Marks button — only when grading is complete */}
+          {gradingStatus === 'GRADED' && (
+            <button
+              type="button"
+              onClick={() => setShowExportDialog(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <Download size={14} />
+              Export Marks
+            </button>
           )}
         </div>
       </div>
@@ -405,12 +675,15 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
                 <th className="px-5 py-2.5 text-left"><SortBtn col="status" label="Status" /></th>
                 <th className="px-5 py-2.5 text-left"><SortBtn col="submittedAt" label="Submitted" /></th>
                 <th className="px-5 py-2.5 text-right"><SortBtn col="score" label="Score" /></th>
+                <th className="px-5 py-2.5 text-right">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-sm text-slate-400">No students match your search.</td>
+                  <td colSpan={6} className="px-5 py-8 text-center text-sm text-slate-400">No students match your search.</td>
                 </tr>
               ) : rows.map((student) => {
                 const sub = submissionByStudent.get(student.id)
@@ -419,7 +692,14 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
                   : null
 
                 return (
-                  <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
+                  <tr
+                    key={student.id}
+                    className="hover:bg-slate-50/50 transition-colors cursor-pointer"
+                    onClick={() => {
+                      if (!sub) return
+                      setDetailSheet({ open: true, attemptId: sub.attemptId, studentName: student.name })
+                    }}
+                  >
                     <td className="px-5 py-3.5">
                       <p className="text-slate-900">{student.name}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">{student.email}</p>
@@ -437,8 +717,9 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
                     <td className="px-5 py-3.5 text-xs text-slate-500">
                       {sub?.submittedAt ? format(new Date(sub.submittedAt), "MMM d, HH:mm") : "—"}
                     </td>
+                    {/* Sub-task 10.2: Hide scores when grading is not complete */}
                     <td className="px-5 py-3.5 text-right">
-                      {sub?.score != null ? (
+                      {gradingStatus === "GRADED" && sub?.score != null ? (
                         <div className="flex flex-col items-end gap-1">
                           <span className="font-medium text-slate-900">
                             {sub.score}
@@ -455,6 +736,28 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
                         <span className="text-slate-300">—</span>
                       )}
                     </td>
+                    {/* Sub-task 10.3: Per-attempt re-grade button */}
+                    <td className="px-5 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                      {sub ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRegrade(sub.attemptId)}
+                          disabled={regradingAttemptId === sub.attemptId}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-50"
+                        >
+                          {regradingAttemptId === sub.attemptId ? (
+                            <>
+                              <span className="h-3 w-3 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
+                              Grading…
+                            </>
+                          ) : (
+                            "Re-grade"
+                          )}
+                        </button>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
@@ -462,6 +765,15 @@ export default function AssessmentResultsView({ data }: { data: AssessmentResult
           </table>
         )}
       </div>
+
+      {/* Student attempt detail sheet */}
+      <StudentAttemptSheet
+        open={detailSheet.open}
+        assessmentId={data.id}
+        attemptId={detailSheet.attemptId}
+        studentName={detailSheet.studentName}
+        onClose={() => setDetailSheet((s) => ({ ...s, open: false }))}
+      />
     </div>
   )
 }

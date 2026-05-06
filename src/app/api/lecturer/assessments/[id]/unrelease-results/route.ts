@@ -9,8 +9,8 @@ async function getLecturerId(email: string) {
   return user?.id ?? null
 }
 
-// POST /api/lecturer/assessments/[id]/release-results
-// Sets resultsReleased to true so students can see their scores
+// POST /api/lecturer/assessments/[id]/unrelease-results
+// Sets resultsReleased to false, hiding scores from students
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -30,30 +30,22 @@ export async function POST(
   // Verify ownership
   const assessment = await prisma.assessment.findUnique({
     where: { id: assessmentId },
-    select: { lecturerId: true, gradingStatus: true, resultsReleased: true },
+    select: { lecturerId: true },
   })
   if (!assessment || assessment.lecturerId !== lecturerId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 
-  // Can only release if grading is complete
-  if (assessment.gradingStatus !== "GRADED") {
-    return NextResponse.json(
-      { error: "Cannot release results before grading is complete" },
-      { status: 409 }
-    )
-  }
-
   await prisma.assessment.update({
     where: { id: assessmentId },
-    data: { resultsReleased: true },
+    data: { resultsReleased: false },
   })
 
   await logAction(
-    "RESULTS_RELEASED",
-    `Results released for assessment ${assessmentId} by lecturer ${lecturerId}`,
+    "RESULTS_UNRELEASED",
+    `Results unreleased for assessment ${assessmentId} by lecturer ${lecturerId}`,
     "SYSTEM"
   )
 
-  return NextResponse.json({ success: true, resultsReleased: true })
+  return NextResponse.json({ resultsReleased: false })
 }
