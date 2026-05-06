@@ -143,9 +143,10 @@ export async function submitAttempt(attemptId: number, reason?: 'TIMED_OUT' | 'F
     select: { id: true, questionId: true, answerText: true, selectedOption: true },
   })
 
-  // Hash all answers
+  // Hash subjective answers only — MCQ selectedOption collisions are expected
+  // (many students picking the same option is normal, not plagiarism)
   for (const answer of answers) {
-    const raw = answer.answerText ?? (answer.selectedOption?.toString() ?? null)
+    const raw = answer.answerText ?? null
     await prisma.studentAnswer.update({ where: { id: answer.id }, data: { answerHash: computeHash(raw) } })
   }
 
